@@ -4,6 +4,7 @@
 # Generated, vendored, or build output — never format these.
 excludes = [
   "bun.lock",
+  ".env*",
   "*.glb",
   "*.usdz",
   "*.ico",

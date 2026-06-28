@@ -40,9 +40,7 @@ worker-configuration.d.ts
 
 # env files (can opt-in for committing if needed)
 .env*
-
-# vercel
-.vercel
+!.env.example
 
 # typescript
 *.tsbuildinfo

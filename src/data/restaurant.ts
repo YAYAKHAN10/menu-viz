@@ -1,6 +1,12 @@
+import { dishModelUrl, dishUsdzUrl } from "@/lib/assets";
 import type { Restaurant } from "@/types/restaurant";
 
-const dishModelUrl = (dishId: string) => `/models/dishes/${dishId}.glb`;
+// iOS Quick Look needs USDZ, which we don't have yet (only GLB). Flip to true
+// once USDZ assets are generated and uploaded to R2 so iOS AR turns on without
+// shipping a broken "View on my table" button.
+const USDZ_READY = false;
+const dishUsdz = (dishId: string) =>
+  USDZ_READY ? dishUsdzUrl(dishId) : undefined;
 
 export const restaurants: Restaurant[] = [
   {
@@ -33,7 +39,7 @@ export const restaurants: Restaurant[] = [
         category: "Grill",
         imageUrl: "/images/dishes/classic-burger.jpg",
         modelUrl: dishModelUrl("classic-burger"),
-        iosModelUrl: "/models/dishes/classic-burger.usdz",
+        iosModelUrl: dishUsdz("classic-burger"),
         prepTime: "14 min",
         pairing: "Citrus iced tea",
         highlights: ["Halal beef", "House sauce", "Best seller"],
@@ -53,7 +59,7 @@ export const restaurants: Restaurant[] = [
         category: "Mains",
         imageUrl: "/images/dishes/alfredo-pasta.jpg",
         modelUrl: dishModelUrl("alfredo-pasta"),
-        iosModelUrl: "/models/dishes/alfredo-pasta.usdz",
+        iosModelUrl: dishUsdz("alfredo-pasta"),
         prepTime: "16 min",
         pairing: "Sparkling lime soda",
         highlights: ["Creamy", "Fresh basil", "AR ready"],
@@ -73,7 +79,7 @@ export const restaurants: Restaurant[] = [
         category: "Grill",
         imageUrl: "/images/dishes/seekh-kebab.jpg",
         modelUrl: dishModelUrl("seekh-kebab"),
-        iosModelUrl: "/models/dishes/seekh-kebab.usdz",
+        iosModelUrl: dishUsdz("seekh-kebab"),
         prepTime: "18 min",
         pairing: "Mint lemonade",
         highlights: ["Coal fired", "Signature spice", "AR ready"],
@@ -93,7 +99,7 @@ export const restaurants: Restaurant[] = [
         category: "Grill",
         imageUrl: "/images/dishes/malai-boti.jpg",
         modelUrl: dishModelUrl("malai-boti"),
-        iosModelUrl: "/models/dishes/malai-boti.usdz",
+        iosModelUrl: dishUsdz("malai-boti"),
         prepTime: "20 min",
         pairing: "Salted lassi",
         highlights: ["Creamy", "Mild spice", "Table favorite"],
@@ -113,7 +119,7 @@ export const restaurants: Restaurant[] = [
         category: "Mains",
         imageUrl: "/images/dishes/mutton-karahi.jpg",
         modelUrl: dishModelUrl("mutton-karahi"),
-        iosModelUrl: "/models/dishes/mutton-karahi.usdz",
+        iosModelUrl: dishUsdz("mutton-karahi"),
         prepTime: "28 min",
         pairing: "Tandoori naan",
         highlights: ["Shareable", "Fresh masala", "AR ready"],
@@ -133,7 +139,7 @@ export const restaurants: Restaurant[] = [
         category: "Starters",
         imageUrl: "/images/dishes/lahori-fish.jpg",
         modelUrl: dishModelUrl("lahori-fish"),
-        iosModelUrl: "/models/dishes/lahori-fish.usdz",
+        iosModelUrl: dishUsdz("lahori-fish"),
         prepTime: "15 min",
         pairing: "Ginger soda",
         highlights: ["Crisp", "Light spice", "Share plate"],
@@ -153,7 +159,7 @@ export const restaurants: Restaurant[] = [
         category: "Starters",
         imageUrl: "/images/dishes/burrata-chaat.jpg",
         modelUrl: dishModelUrl("burrata-chaat"),
-        iosModelUrl: "/models/dishes/burrata-chaat.usdz",
+        iosModelUrl: dishUsdz("burrata-chaat"),
         prepTime: "10 min",
         pairing: "Pomegranate spritz",
         highlights: ["Fresh", "Modern chaat", "Vegetarian"],
@@ -173,7 +179,7 @@ export const restaurants: Restaurant[] = [
         category: "Desserts",
         imageUrl: "/images/dishes/chocolate-dessert.jpg",
         modelUrl: dishModelUrl("chocolate-dessert"),
-        iosModelUrl: "/models/dishes/chocolate-dessert.usdz",
+        iosModelUrl: dishUsdz("chocolate-dessert"),
         prepTime: "8 min",
         pairing: "Single-origin espresso",
         highlights: ["Rich cocoa", "Berry finish", "Shareable"],
@@ -193,7 +199,7 @@ export const restaurants: Restaurant[] = [
         category: "Desserts",
         imageUrl: "/images/dishes/saffron-kheer.jpg",
         modelUrl: dishModelUrl("saffron-kheer"),
-        iosModelUrl: "/models/dishes/saffron-kheer.usdz",
+        iosModelUrl: dishUsdz("saffron-kheer"),
         prepTime: "7 min",
         pairing: "Karak chai",
         highlights: ["Classic", "Saffron", "Comforting"],
@@ -213,7 +219,7 @@ export const restaurants: Restaurant[] = [
         category: "Drinks",
         imageUrl: "/images/dishes/mint-lemonade.jpg",
         modelUrl: dishModelUrl("mint-lemonade"),
-        iosModelUrl: "/models/dishes/mint-lemonade.usdz",
+        iosModelUrl: dishUsdz("mint-lemonade"),
         prepTime: "5 min",
         pairing: "Grilled mains",
         highlights: ["Refreshing", "Citrus", "Non-alcoholic"],

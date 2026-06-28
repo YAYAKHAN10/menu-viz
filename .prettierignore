@@ -1,5 +1,6 @@
 # Keep in sync with treefmt.toml excludes.
 bun.lock
+.env*
 cloudflare-env.d.ts
 next-env.d.ts
 .open-next/
