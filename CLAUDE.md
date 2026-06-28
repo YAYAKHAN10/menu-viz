@@ -131,13 +131,38 @@ These are settled. Don't reopen without a stated reason.
   static export, not Vercel. Config: `open-next.config.ts`, `wrangler.jsonc`
   (worker `menu-viz`), `public/_headers`. The dev-only binding init in
   `next.config.ts` is gated to `NODE_ENV=development` so it can't break a build.
-- **3D asset hosting: Cloudflare R2 + CDN (zero egress)** — see §"R2 assets".
+- **3D asset hosting: Cloudflare R2 + CDN (zero egress)** — see §4b.
 - **Tooling: nix-first.** `shell.nix` is the single source of truth; `flake.nix`
   wraps it. `treefmt` drives prettier (web) + nixfmt (nix); `lefthook` runs the
   pre-commit/pre-push gates. CI mirrors these.
 - **Analytics vendor: none yet.** Vercel removed; pipeline TBD (§8).
 - **Still open:** service-worker tooling, the analytics pipeline itself, and the
   short-link scheme (HANDOFF §12.3–.6).
+
+---
+
+## 4b. Asset hosting (R2 + CDN) — how models reach the phone
+
+3D binaries (GLB for Android Scene Viewer, USDZ for iOS Quick Look) live in
+**Cloudflare R2** served through a **CDN custom domain** (`cdn.menuviz.app`),
+never bundled in the app and never on egress-billed storage.
+
+- **Public access = a custom domain on the bucket**, not the `*.r2.dev` dev URL.
+  r2.dev is rate-limited/uncached — fine for a one-off test, not production. The
+  custom domain puts objects behind Cloudflare's cache (zero egress R2→edge).
+- **Content types matter for AR:** `.glb` → `model/gltf-binary`, `.usdz` →
+  `model/vnd.usdz+zip`. Set on upload; wrong types break Quick Look/Scene Viewer.
+- **CORS:** the inline `<model-viewer>` fetches the GLB via XHR, so the bucket
+  needs a CORS rule allowing the app origin (`GET`, `HEAD`). Quick Look/Scene
+  Viewer fetch the file themselves and also require HTTPS + range requests (R2 +
+  CDN give these).
+- **App wiring:** point `modelUrl`/`iosModelUrl` (`src/data/restaurant.ts`) at the
+  CDN. Two prerequisites for _real_ AR (vs the current orbit-only preview):
+  (1) produce USDZ for every dish (none exist yet — pipeline GLB→USDZ), and
+  (2) add `ar ar-modes="webxr scene-viewer quick-look"` + `ios-src` to the
+  `<model-viewer>` in `DishModel.tsx` (today it's a decorative, non-AR orbit).
+- A Worker **R2 binding is only needed for app logic** (signed uploads, the
+  pipeline) — pure public delivery is served by the CDN domain, no binding.
 
 > Repo is currently a **flat `src/` app**, not the `apps/web` monorepo sketched
 > in §5. Migrate toward §5 only when `studio`/`pipeline` actually need it.
