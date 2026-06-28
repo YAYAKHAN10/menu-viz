@@ -21,6 +21,11 @@ declare module "react" {
         exposure?: string;
         "interaction-prompt"?: string;
         "disable-zoom"?: boolean;
+        ar?: boolean;
+        "ar-modes"?: string;
+        "ar-scale"?: string;
+        "ar-placement"?: string;
+        "ios-src"?: string;
       };
     }
   }

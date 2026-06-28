@@ -27,6 +27,7 @@ export type MenuAnalyticsEvent =
   | "category_opened"
   | "dish_viewed"
   | "menu_navigation"
+  | "ar_launched"
   | "model_load_started"
   | "model_load_ready"
   | "model_load_slow"

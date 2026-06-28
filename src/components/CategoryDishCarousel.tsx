@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, PointerEvent } from "react";
-import DishModel from "@/components/DishModel";
+import DishModel, { type DishModelHandle } from "@/components/DishModel";
 import { useModelPreloader } from "@/hooks/useModelPreloader";
 import { trackMenuEvent } from "@/lib/analytics";
 import type { Dish, Restaurant, RestaurantBranch } from "@/types/restaurant";
@@ -67,6 +67,11 @@ export default function CategoryDishCarousel({
     startTime: 0,
     moved: false,
   });
+  const dishModelRef = useRef<DishModelHandle>(null);
+  const [arAvailable, setArAvailable] = useState(false);
+  const handleArAvailabilityChange = useCallback((available: boolean) => {
+    setArAvailable(available);
+  }, []);
 
   const section = sections[categoryIndex] ?? sections[0];
   const dish =
@@ -169,6 +174,10 @@ export default function CategoryDishCarousel({
     setMode("categories");
     setDishIndex(0);
     setRotation(defaultRotation);
+  }
+
+  function launchAr() {
+    dishModelRef.current?.activateAR();
   }
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
@@ -331,10 +340,13 @@ export default function CategoryDishCarousel({
         {dish.modelUrl ? (
           <div className="menu-model menu-model-category" style={modelStyle}>
             <DishModel
+              ref={dishModelRef}
               src={dish.modelUrl}
+              iosSrc={dish.iosModelUrl}
               alt={`${dish.name} 3D model`}
               rotation={rotation}
               analyticsContext={dishAnalyticsContext}
+              onArAvailabilityChange={handleArAvailabilityChange}
             />
           </div>
         ) : (
@@ -383,6 +395,17 @@ export default function CategoryDishCarousel({
             ),
           )}
         </div>
+
+        {mode === "dishes" && arAvailable && dish.modelUrl && (
+          <button
+            type="button"
+            onClick={launchAr}
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/20 bg-white/16 px-5 py-3 text-sm font-semibold tracking-[0.08em] text-white uppercase shadow-lg shadow-black/30 backdrop-blur-md transition active:scale-[0.98] active:bg-white/24"
+          >
+            <span aria-hidden="true">⌖</span>
+            View on my table
+          </button>
+        )}
 
         {mode === "dishes" && (
           <div className="mt-4 grid grid-cols-3 gap-2 text-center">
