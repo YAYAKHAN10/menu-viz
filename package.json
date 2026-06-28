@@ -17,7 +17,11 @@
     "build:worker": "opennextjs-cloudflare build",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
+    "assets:list": "bun run scripts/assets.ts list",
+    "assets:push": "bun run scripts/assets.ts push",
+    "assets:prune": "bun run scripts/assets.ts prune",
+    "assets:sync": "bun run scripts/assets.ts sync"
   },
   "dependencies": {
     "@google/model-viewer": "^4.3.1",
