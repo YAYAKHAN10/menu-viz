@@ -6,7 +6,12 @@ pre-commit:
   commands:
     fmt:
       glob: "*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc,css,md,yml,yaml,html,nix}"
-      run: treefmt {staged_files}
+      # treefmt lives in the nix dev shell. Outside it, skip with a warning
+      # rather than hard-fail — CI's format job is the hard gate.
+      run: >
+        if command -v treefmt >/dev/null 2>&1; then treefmt {staged_files};
+        else echo "⚠ treefmt not found — run inside 'nix develop'; skipping format";
+        fi
       stage_fixed: true
     lint:
       glob: "*.{ts,tsx,js,jsx,mjs,cjs}"
