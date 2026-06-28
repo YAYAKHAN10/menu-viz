@@ -1,0 +1,4 @@
+# Cloudflare Workers Assets headers. Mirrors next.config.ts `headers()` so 3D
+# assets stay long-lived + immutable whether served by Next or by Workers Assets.
+/models/*
+  Cache-Control: public, max-age=31536000, immutable

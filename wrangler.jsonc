@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "menu-viz",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-06-01",
+  // `nodejs_compat` is required by the OpenNext server runtime.
+  // `global_fetch_strictly_public` makes same-worker fetches route through the
+  // public path, which Next's data fetching relies on.
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".open-next/assets",
+  },
+  "observability": {
+    "enabled": true,
+  },
+}
