@@ -8,8 +8,11 @@ on:
 
 # Worker name comes from wrangler.jsonc ("menu-viz").
 # Required secrets (repo or org): CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
+# Optional repo variable: NEXT_PUBLIC_CDN_BASE (override the default R2 dev URL,
+# e.g. once a CDN custom domain exists). NEXT_PUBLIC_* is inlined at build time.
 env:
   NEXT_TELEMETRY_DISABLED: 1
+  NEXT_PUBLIC_CDN_BASE: ${{ vars.NEXT_PUBLIC_CDN_BASE || 'https://pub-89bf546384844ba7a583b22230631686.r2.dev' }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
