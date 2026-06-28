@@ -2,7 +2,11 @@
 
 ## Analytics to Monitor
 
-Use Vercel Analytics for page views and custom menu events, and Vercel Speed Insights for performance. In Vercel, open the project, then use the Analytics and Speed Insights tabs.
+The app emits a typed funnel of menu events through `trackMenuEvent` in
+`src/lib/analytics.ts`. The event sink is a single seam (`sendEvent`) that is
+currently a no-op — the privacy-light pipeline is not yet chosen (see
+`HANDOFF.md` §8/§12). Wire that seam (e.g. `navigator.sendBeacon` to a Workers
+route) to start collecting; no call sites change.
 
 Core health metrics:
 
@@ -26,7 +30,7 @@ Problem signals to watch first:
 - High `camera_blocked` compared with `camera_started`.
 - Frequent `model_load_slow` for a specific `dishId` or `modelUrl`.
 - Any repeated `model_load_error`.
-- Long Speed Insights interaction or load times on mobile.
+- Long interaction or load times on mobile (track via the chosen pipeline).
 
 ## Restaurant and Branch URLs
 

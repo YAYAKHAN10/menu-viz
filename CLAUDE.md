@@ -108,12 +108,39 @@ to choose Quick Look vs Scene Viewer asset format).
 - **Data / auth / restaurant CMS:** Supabase (Postgres + Auth + Storage for
   _non-asset_ data only).
 - **3D asset + image hosting/CDN:** Cloudflare R2 + Cloudflare CDN (**zero egress**).
-- **Hosting / edge:** Cloudflare Pages or Vercel for the app; edge functions for
-  the handful of dynamic endpoints. **No bespoke AWS Lambda/EC2.**
+- **Hosting / edge:** **Cloudflare Workers** (SSR via `@opennextjs/cloudflare`);
+  the worker also serves static assets. **No bespoke AWS Lambda/EC2, no Vercel.**
 - **PWA:** service worker (Workbox or Next PWA) — cache-first for assets, network
   for menu JSON, prefetch next dish.
 - **Analytics:** lightweight, privacy-respecting event pipeline (see §8). Avoid
-  heavy third-party SDKs that slow first paint.
+  heavy third-party SDKs that slow first paint. **No Vercel Analytics/Speed
+  Insights** — events go through the `sendEvent` seam in `lib/analytics.ts`.
+
+---
+
+## 4a. Decisions locked (resolves HANDOFF §12 — 2026-06-29)
+
+These are settled. Don't reopen without a stated reason.
+
+- **Framework: Next.js (App Router), TypeScript strict.** Not Vite. SSR menu
+  pages for per-location SEO.
+- **Package manager: bun, strictly.** Only `bun.lock` (no npm/pnpm/yarn). The
+  nix shell adds `nodejs_24` only for tools that need a `node` binary; the
+  project runs on bun.
+- **Hosting: Cloudflare Workers, SSR via `@opennextjs/cloudflare`** — not Pages
+  static export, not Vercel. Config: `open-next.config.ts`, `wrangler.jsonc`
+  (worker `menu-viz`), `public/_headers`. The dev-only binding init in
+  `next.config.ts` is gated to `NODE_ENV=development` so it can't break a build.
+- **3D asset hosting: Cloudflare R2 + CDN (zero egress)** — see §"R2 assets".
+- **Tooling: nix-first.** `shell.nix` is the single source of truth; `flake.nix`
+  wraps it. `treefmt` drives prettier (web) + nixfmt (nix); `lefthook` runs the
+  pre-commit/pre-push gates. CI mirrors these.
+- **Analytics vendor: none yet.** Vercel removed; pipeline TBD (§8).
+- **Still open:** service-worker tooling, the analytics pipeline itself, and the
+  short-link scheme (HANDOFF §12.3–.6).
+
+> Repo is currently a **flat `src/` app**, not the `apps/web` monorepo sketched
+> in §5. Migrate toward §5 only when `studio`/`pipeline` actually need it.
 
 ---
 

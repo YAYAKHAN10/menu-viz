@@ -181,9 +181,9 @@ not a compute problem. So:
   where S3 egress would quietly bleed us to death.
 - **Supabase** for menu data, auth, and the restaurant CMS — fast to build, real
   Postgres, generous. **Never** put the heavy binaries here.
-- **Frontend** on Cloudflare Pages / Vercel; **edge functions** for the few
-  dynamic endpoints. **No bespoke AWS Lambda/EC2** — it adds ops drag for a small
-  team optimizing for speed, with no benefit at our shape.
+- **Frontend** on Cloudflare Workers (SSR via OpenNext); the worker also handles
+  the few dynamic endpoints. **No bespoke AWS Lambda/EC2** — it adds ops drag for
+  a small team optimizing for speed, with no benefit at our shape.
 - **PWA + service worker**: cache-first for assets, prefetch next dish → a re-scan
   is instant, and everything tolerates bad/absent restaurant Wi-Fi over cellular.
 - **No on-prem hardware / local network device.** It adds cost, install labor,
@@ -261,11 +261,12 @@ charging restaurants in v1; spreading thin across cities before saturating one.
 
 ## 12. Open decisions (resolve early, flag in CLAUDE.md once chosen)
 
-1. **Next.js vs Vite SPA.** Recommendation: **Next.js (App Router)** for
-   per-location menu SEO + fast first paint. Override to Vite only if SEO is
-   deprioritized. _Decision needed before scaffold._
-2. **Cloudflare Pages vs Vercel** for hosting. Either works; Cloudflare keeps
-   asset + app + edge under one roof.
+> Resolved items are recorded in `CLAUDE.md` §4a (2026-06-29).
+
+1. ✅ **RESOLVED — Next.js (App Router)**, for per-location menu SEO + fast first
+   paint. (Also locked: bun as the package manager.)
+2. ✅ **RESOLVED — Cloudflare Workers** (SSR via `@opennextjs/cloudflare`), not
+   Pages static export and not Vercel — keeps asset + app + edge under one roof.
 3. **Service worker tooling** (Workbox vs framework PWA plugin).
 4. **Analytics implementation** (self-hosted lightweight vs a privacy-first
    vendor) — must not slow first paint.

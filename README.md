@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# menuviz.app
 
-## Getting Started
+Zero-install AR menu PWA: scan a QR, swipe a dish feed, view any dish in AR at
+real-world scale, and share a branded photo. See `HANDOFF.md` for the product
+and `CLAUDE.md` for working rules and locked decisions.
 
-First, run the development server:
+**Stack:** Next.js 16 (App Router) · React 19 · Tailwind v4 · `@google/model-viewer`
+· bun · Cloudflare Workers (SSR via OpenNext) · nix dev shell.
+
+## Develop
+
+This repo is bun-only and uses a nix dev shell that pins the toolchain and
+installs git hooks on entry:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+nix develop          # bun, node, treefmt, nixfmt, lefthook + hooks installed
+bun install
+bun run dev          # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Without nix, you still need `bun` on your PATH (`bun install && bun run dev`),
+but you won't get `treefmt`/`nixfmt`/`lefthook`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command                | Purpose                                         |
+| ---------------------- | ----------------------------------------------- |
+| `bun run dev`          | Dev server                                      |
+| `bun run build`        | Production Next build                           |
+| `bun run type-check`   | `tsc --noEmit`                                  |
+| `bun run lint`         | ESLint                                          |
+| `bun run format`       | Format everything via treefmt (prettier+nixfmt) |
+| `bun run build:worker` | Build + bundle the Cloudflare worker (OpenNext) |
+| `bun run preview`      | Build + run the worker locally                  |
+| `bun run deploy`       | Build + deploy to Cloudflare Workers            |
 
-## Learn More
+## Deploy
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+CI (`.github/workflows/ci.yml`) deploys to **Cloudflare Workers** on push to
+`main` and uploads a preview version per PR. It needs two repo secrets:
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
