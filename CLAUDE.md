@@ -156,11 +156,19 @@ never bundled in the app and never on egress-billed storage.
   needs a CORS rule allowing the app origin (`GET`, `HEAD`). Quick Look/Scene
   Viewer fetch the file themselves and also require HTTPS + range requests (R2 +
   CDN give these).
-- **App wiring:** point `modelUrl`/`iosModelUrl` (`src/data/restaurant.ts`) at the
-  CDN. Two prerequisites for _real_ AR (vs the current orbit-only preview):
-  (1) produce USDZ for every dish (none exist yet — pipeline GLB→USDZ), and
-  (2) add `ar ar-modes="webxr scene-viewer quick-look"` + `ios-src` to the
-  `<model-viewer>` in `DishModel.tsx` (today it's a decorative, non-AR orbit).
+- **App wiring (done):** URLs resolve through `NEXT_PUBLIC_CDN_BASE`
+  (`src/lib/assets.ts`) — set it to the R2/CDN base and GLB/USDZ load from R2;
+  unset falls back to local `public/`. It's inlined at build time, so it must be
+  present for `build`/`build:worker` (local `.env.local`, CI repo/Cloudflare var).
+- **Managing assets:** `bun run assets:{list,push,prune,sync}` and
+  `bun run scripts/assets.ts rm <dishId|key>` keep the bucket in sync with
+  `public/models/dishes/` (the source of truth) — `push` uploads with correct
+  content-types, `prune`/`rm` remove stale GLB/USDZ. Auth via `CLOUDFLARE_API_TOKEN`
+  or `.cf-token`.
+- **AR status:** Android Scene Viewer works now (GLB). The "View on my table"
+  button shows only when model-viewer reports `canActivateAR` (feature-detected).
+  **iOS Quick Look needs USDZ** — none exist yet, so `USDZ_READY` in
+  `restaurant.ts` is `false`; produce USDZ (GLB→USDZ), `assets:push`, flip the flag.
 - A Worker **R2 binding is only needed for app logic** (signed uploads, the
   pipeline) — pure public delivery is served by the CDN domain, no binding.
 
