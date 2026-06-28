@@ -1,7 +1,5 @@
 "use client";
 
-import { track } from "@vercel/analytics";
-
 export type AnalyticsContext = {
   restaurantSlug?: string;
   restaurantName?: string;
@@ -42,7 +40,7 @@ export function trackMenuEvent(
   const payload = removeEmptyValues(context);
 
   try {
-    track(eventName, payload);
+    sendEvent(eventName, payload);
   } catch (error) {
     if (process.env.NODE_ENV === "development") {
       console.warn("[analytics failed]", eventName, error);
@@ -52,6 +50,16 @@ export function trackMenuEvent(
   if (process.env.NODE_ENV === "development") {
     console.debug("[analytics]", eventName, payload);
   }
+}
+
+type AnalyticsPayload = Record<string, string | number>;
+
+// The single seam for the event sink. Currently a no-op in production — the
+// privacy-light pipeline (HANDOFF §8/§12) is not chosen yet. Wire it here, e.g.
+// `navigator.sendBeacon("/api/events", ...)` to a Workers route, without
+// touching any call sites.
+function sendEvent(_eventName: MenuAnalyticsEvent, _payload: AnalyticsPayload) {
+  // intentionally empty until the pipeline lands
 }
 
 function removeEmptyValues(context: AnalyticsContext) {
