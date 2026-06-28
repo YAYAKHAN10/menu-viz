@@ -1,0 +1,42 @@
+# One formatter entrypoint for every language. Driven by treefmt from the nix
+# shell; lefthook and CI both call it so local and CI formatting never diverge.
+
+# Generated, vendored, or build output — never format these.
+excludes = [
+  "bun.lock",
+  "*.glb",
+  "*.usdz",
+  "*.ico",
+  "*.svg",
+  "cloudflare-env.d.ts",
+  "next-env.d.ts",
+  ".open-next/**",
+  ".next/**",
+  "out/**",
+  "node_modules/**",
+]
+
+[formatter.prettier]
+# prettier resolves from node_modules (a bun devDependency) via the PATH the
+# nix shell prepends, so the version is pinned by bun.lock, not nixpkgs.
+command = "prettier"
+options = ["--write"]
+includes = [
+  "*.ts",
+  "*.tsx",
+  "*.js",
+  "*.jsx",
+  "*.mjs",
+  "*.cjs",
+  "*.json",
+  "*.jsonc",
+  "*.css",
+  "*.md",
+  "*.yml",
+  "*.yaml",
+  "*.html",
+]
+
+[formatter.nixfmt]
+command = "nixfmt"
+includes = ["*.nix"]

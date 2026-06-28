@@ -1,0 +1,13 @@
+# Keep in sync with treefmt.toml excludes.
+bun.lock
+cloudflare-env.d.ts
+next-env.d.ts
+.open-next/
+.next/
+out/
+node_modules/
+public/models/
+*.glb
+*.usdz
+*.svg
+*.ico
