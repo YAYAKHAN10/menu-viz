@@ -1,0 +1,21 @@
+# Local quality gate. Installed automatically when you enter the nix dev shell
+# (`lefthook install` in shell.nix). Bypass in an emergency with `--no-verify`.
+
+pre-commit:
+  parallel: true
+  commands:
+    fmt:
+      glob: "*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc,css,md,yml,yaml,html,nix}"
+      run: treefmt {staged_files}
+      stage_fixed: true
+    lint:
+      glob: "*.{ts,tsx,js,jsx,mjs,cjs}"
+      run: bunx eslint --no-warn-ignored {staged_files}
+
+pre-push:
+  parallel: false
+  commands:
+    type-check:
+      run: bun run type-check
+    build:
+      run: bun run build
