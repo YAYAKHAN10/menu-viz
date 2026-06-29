@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, PointerEvent } from "react";
+import type {
+  CSSProperties,
+  MouseEvent as ReactMouseEvent,
+  PointerEvent,
+} from "react";
 import DishModel, { type DishModelHandle } from "@/components/DishModel";
 import { useModelPreloader } from "@/hooks/useModelPreloader";
 import { trackMenuEvent } from "@/lib/analytics";
@@ -265,7 +269,27 @@ export default function CategoryDishCarousel({
     }
 
     if (wasTap) {
+      // Categories: tap drills into the dishes. Dishes: tap the model itself
+      // launches AR directly (still a user gesture, just no separate button).
+      if (mode === "categories") {
+        openCategory();
+      } else if (arAvailable) {
+        launchAr();
+      }
+    }
+  }
+
+  function handleModelClick(event: ReactMouseEvent<HTMLButtonElement>) {
+    // Pointer taps are handled in onPointerUp; only act on keyboard activation
+    // (Enter/Space produce a click with detail === 0) so AR stays accessible.
+    if (event.detail !== 0) {
+      return;
+    }
+
+    if (mode === "categories") {
       openCategory();
+    } else if (arAvailable) {
+      launchAr();
     }
   }
 
@@ -318,6 +342,7 @@ export default function CategoryDishCarousel({
 
       <button
         type="button"
+        onClick={handleModelClick}
         onPointerDown={handleModelPointerDown}
         onPointerMove={handleModelPointerMove}
         onPointerUp={handleModelPointerUp}
@@ -332,7 +357,9 @@ export default function CategoryDishCarousel({
         aria-label={
           mode === "categories"
             ? `Open ${section.category} dishes`
-            : `Selected dish ${dish.name}`
+            : arAvailable
+              ? `View ${dish.name} on your table`
+              : `Selected dish ${dish.name}`
         }
       >
         <div className="absolute inset-8 rounded-full border border-white/12" />
@@ -358,9 +385,11 @@ export default function CategoryDishCarousel({
         )}
       </button>
 
-      {mode === "categories" && (
+      {(mode === "categories" || arAvailable) && (
         <p className="mt-4 rounded-full border border-white/14 bg-black/22 px-4 py-2 text-xs font-semibold tracking-[0.16em] text-white/66 uppercase shadow-lg shadow-black/20 backdrop-blur-md">
-          Tap dish to explore category
+          {mode === "categories"
+            ? "Tap dish to explore category"
+            : "Tap dish to view on your table"}
         </p>
       )}
 
@@ -395,17 +424,6 @@ export default function CategoryDishCarousel({
             ),
           )}
         </div>
-
-        {mode === "dishes" && arAvailable && dish.modelUrl && (
-          <button
-            type="button"
-            onClick={launchAr}
-            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/20 bg-white/16 px-5 py-3 text-sm font-semibold tracking-[0.08em] text-white uppercase shadow-lg shadow-black/30 backdrop-blur-md transition active:scale-[0.98] active:bg-white/24"
-          >
-            <span aria-hidden="true">⌖</span>
-            View on my table
-          </button>
-        )}
 
         {mode === "dishes" && (
           <div className="mt-4 grid grid-cols-3 gap-2 text-center">
