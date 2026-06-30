@@ -48,9 +48,13 @@ Cloudflare Worker preview deploy):
 
 **Pending / next** (see §16):
 
-- **Combo baking for AR**: AR currently drops the **base dish only**. Add-ons in
-  AR need pre-baked per-combo GLB/USDZ files. `resolveArModel()` in `lib/ar.ts`
-  is the seam.
+- **Combo baking for AR**: the pipeline is **built** (`scripts/bake-combos.ts` +
+  `lib/combo.ts` + the generated `lib/combos.generated.ts` manifest + a wired
+  `resolveArModel()`). It bakes **variant-only** combos (base dish + chosen side)
+  and is verified end-to-end. It bakes **nothing today** because no side/add-on
+  component GLBs exist yet — drop a GLB at `public/models/components/<optionId>.glb`,
+  run `bun run bake:combos`, `bun run assets:sync`, and AR uses the combo. Until
+  then AR drops the base dish (manifest empty → `resolveArModel()` falls back).
 - **iOS AR**: `USDZ_READY=false` — no USDZ generated yet, so iPhone uses the
   photo-capture path. Generate USDZ per dish/combo, then flip the flag.
 - **Real add-on GLBs**: add-ons render as primitive placeholders today.
@@ -122,23 +126,28 @@ actually need it.
 ### Components — `src/components/` (all `"use client"`)
 
 - **`CameraMenu.tsx`** — the shell. Opens the rear camera (`getUserMedia`, with
-  constraint fallbacks), shows the hero image until the stream is live, handles
-  the camera-blocked/retry state and the top nav chip. Exposes
+  constraint fallbacks), shows a **clean dark product-viewer stage** until the
+  stream is live (the AI hero wallpaper was removed — it was distracting behind
+  the dish), handles the camera-blocked/retry state and the top nav chip. Exposes
   `captureBackgroundFrame()` (draws the current video frame to a canvas →
   dataURL) used by the share compositor. Renders `<MenuStage>`. Fires
   `menu_session_started`, `camera_*` events.
-- **`MenuStage.tsx`** — **THE diner screen.** Single screen: top category strip
-  (tap to switch), horizontal swipe between items, drag-to-rotate, tap-to-
-  customise. Owns: `sections` (derived from the branch `dishes`, category order =
-  first-appearance), per-dish add-on selection state (`selectionByDish`),
-  rotation, AR launch, and the capture flow. Renders `<DishStage>` (dynamically
-  imported, `ssr:false`), the info panel (name/subtitle/price + progress dots),
-  the customiser chips, the action row (**View on my table** / **Share a photo**),
-  and the `<DishCapture>` modal. Gesture model: drag rotates, a forceful
-  horizontal flick changes item, a clean tap toggles the customiser.
+- **`MenuStage.tsx`** — **THE diner screen.** Single screen: a **centered,
+  swipeable** category strip (tap or swipe), horizontal swipe between items,
+  drag-to-rotate, tap-to-customise. Owns: `sections` (derived from the branch
+  `dishes`, category order = first-appearance), per-dish add-on toggle state
+  (`selectionByDish`) **and per-dish single-select variant state**
+  (`variantByDish`: dishId → groupId → optionId), rotation, AR launch, and the
+  capture flow. Builds `trayAddOns` = chosen variant options + toggled add-ons
+  (drives the live preview + price; the variant selection alone drives AR).
+  Renders `<DishStage>` (dynamically imported, `ssr:false`), a **compact** info
+  panel (progress dots + name + price), the customiser (single-select **variant
+  groups** above **add-on toggles**), the action row (**View on my table** /
+  **Share a photo**), and the `<DishCapture>` modal. Gesture model: drag rotates,
+  a forceful horizontal flick changes item, a clean tap toggles the customiser.
   `useSyncExternalStore` client-gates the AR button to avoid hydration mismatch.
-  Fires `menu_navigation`, `category_opened`, `addon_toggled`, `ar_launched`,
-  `capture_*`, `share`.
+  Fires `menu_navigation`, `category_opened`, `addon_toggled`, `variant_selected`,
+  `ar_launched`, `capture_*`, `share`.
 - **`DishStage.tsx`** — the **react-three-fiber** preview. `<Canvas>` with
   `preserveDrawingBuffer` (so we can snapshot it), lights + `ContactShadows`.
   Loads the base dish GLB (Draco via `useGLTF(url, true)`), **normalises** it
@@ -170,11 +179,19 @@ available items + applies price overrides → `MenuDish[]`), `getDishById`.
 - **`analytics.ts`** — `trackMenuEvent(name, ctx)` → `sendEvent` seam (**no-op**
   today; wire the pipeline here). Carries the event union + `AnalyticsContext`.
 - **`ar.ts`** — the **AR seam.** `detectArCapability()` (UA: iOS→`quick-look`,
-  Android→`scene-viewer`, else `none`), `canLaunchAr(dish)`, `launchAr(dish,
-addOns)`, `launchSceneViewer` (ARCore `intent://` with `resizable=false` for
-  fixed scale + a `browser_fallback_url`), `launchQuickLook` (`rel="ar"` anchor),
-  and **`resolveArModel(dish, addOns, platform)`** — returns the base dish today;
-  this is where pre-baked combo URLs plug in.
+  Android→`scene-viewer`, else `none`), `canLaunchAr(dish)`,
+  `launchAr(dish, variantSelection)`, `launchSceneViewer` (ARCore `intent://`
+  with `resizable=false` for fixed scale + a `browser_fallback_url`),
+  `launchQuickLook` (`rel="ar"` anchor), and
+  **`resolveArModel(dish, variantSelection, platform)`** — computes the combo key
+  (`lib/combo.ts`) and returns the baked combo URL when it's in `BAKED_COMBOS`,
+  else the base dish.
+- **`combo.ts`** — pure, shared combo-identity: `comboKey(dishId, selection,
+groups)` → a deterministic `dishId__group-option` string. Used by both the
+  baker and the AR seam so they agree byte-for-byte.
+- **`combos.generated.ts`** — `BAKED_COMBOS: Set<string>`, **auto-generated** by
+  `bun run bake:combos`; the set of combo keys that have a baked GLB on R2. Empty
+  until component GLBs exist. Don't hand-edit.
 - **`composeShareImage.ts`** — the canvas compositor. Builds a 9:16 (1080×1920)
   branded shot: camera frame (or dark gradient) + the dish PNG + legibility scrim
   - the dish's accent rule + `MENUVIZ.APP` wordmark + dish name/price → JPEG blob.
@@ -197,7 +214,14 @@ the full menu never ships to the client) + `toRestaurantMeta()`.
 
 - **`assets.ts`** — R2 sync CLI: `list` / `push` / `prune` / `sync` / `rm`. Auth
   via `CLOUDFLARE_API_TOKEN` env or the `.cf-token` file. Bucket `menuviz-assets`,
-  key prefix `models/dishes/`, sets correct content-types + immutable cache.
+  syncs **both** `models/dishes/` and `models/combos/`, sets correct
+  content-types + immutable cache.
+- **`bake-combos.ts`** — the **combo baker** (see §8). Enumerates variant-only
+  combos, composes base dish + chosen component GLBs onto the ground at true
+  meters (`mergeDocuments` + reparent under a scaled wrapper), Draco/JPEG
+  optimises via the gltf-transform CLI → `public/models/combos/<key>.glb`, then
+  rewrites `src/lib/combos.generated.ts`. Reads components from
+  `public/models/components/<optionId>.glb`. `--dry` to preview.
 - **`prep-chicken.ts`** — one-off: weld + compute smooth normals + assign a warm
   "crispy" PBR material to the Meshy chicken export (which shipped POSITION-only).
 - **`normalize-scale.ts`** — scales a GLB so its largest horizontal dimension =
@@ -272,10 +296,11 @@ non-functional). So AR is a **barbell**, and the live multi-model preview is our
 Key facts:
 
 - **OS AR viewers are single-object and take one pre-baked file from a URL.** You
-  cannot toggle add-ons or swipe items inside Scene Viewer/Quick Look. So add-ons
-  in AR = **pre-baked combination GLB/USDZ** (the "browse-and-drop" model the
-  product is built around). `resolveArModel()` is the seam; today it returns the
-  base dish.
+  cannot toggle add-ons or swipe items inside Scene Viewer/Quick Look. So variants
+  in AR = **pre-baked combination GLB** (the "browse-and-drop" model the product is
+  built around), produced by `scripts/bake-combos.ts`. `resolveArModel()` maps the
+  variant selection → the baked combo URL via `BAKED_COMBOS`, falling back to the
+  base dish when a combo isn't baked (the case today — no component GLBs yet).
 - We **dropped `<model-viewer>`** because it is single-model (can't show
   toggleable add-ons) and we now launch Scene Viewer/Quick Look directly. Scene
   Viewer's `intent://arvr.google.com/scene-viewer/...&resizable=false` is Google's
@@ -340,9 +365,28 @@ budget → (for iOS) convert GLB→USDZ and verify scale survives → publish to
 
 **Budget:** per-model **≤ ~1–3 MB** (current: burger 1.21 MB, chicken 748 KB).
 
-**Combo baking (the next pipeline step):** for AR add-ons, merge the base dish +
-selected add-on GLBs onto a tray into one GLB (and USDZ), name by combo, upload to
-R2, and have `resolveArModel()` map the selected set → that URL.
+**Combo baking (built — `scripts/bake-combos.ts`):** OS AR viewers take one file,
+so each base-dish-plus-side combination is composed ahead of time into a single
+GLB. Drop component GLBs, bake, sync, done:
+
+```bash
+# 1. author each side/add-on as its own GLB (real meters), drop it here:
+#    public/models/components/<optionId>.glb     (e.g. fries.glb, mashed.glb)
+# 2. bake every combo whose components all exist (writes the manifest):
+bun run bake:combos            # --dry to preview what would bake
+# 3. push the new combos to R2 (assets:sync now covers models/combos/ too):
+bun run assets:sync
+```
+
+The baker scopes to **variants only** (one option per group; add-ons don't change
+the baked combo). It keeps the base dish at authored real-world scale, scales each
+component to a per-`kind` target, lays them in a row beside the dish on the ground
+plane, then runs the same Draco+JPEG `gltf-transform optimize` recipe as dishes
+(Scene-Viewer-safe). Combo identity (`lib/combo.ts`) and the generated manifest
+(`lib/combos.generated.ts`) are the only contract the runtime needs. **USDZ combos
+are not generated** (no GLB→USDZ converter wired), so iOS Quick Look still uses the
+base dish USDZ. To extend scope to add-on permutations, widen `comboKey` + the
+baker's enumeration together.
 
 ---
 
@@ -448,8 +492,11 @@ bun run deploy           # build:worker + wrangler deploy (prefer CI)
 bun run assets:list      # show remote objects + drift vs local
 bun run assets:push      # upload local GLB/USDZ with correct content-types
 bun run assets:prune     # delete remote objects with no local file
-bun run assets:sync      # push then prune (make R2 match public/models/dishes/)
+bun run assets:sync      # push then prune (R2 ↔ public/models/dishes + /combos)
 bun run scripts/assets.ts rm <dishId|key>   # delete a model from R2
+# combo baking (see §8; export LD_LIBRARY_PATH first in the sandbox)
+bun run bake:combos      # compose base+variant combos → public/models/combos/ + manifest
+bun run bake:combos --dry  # preview what would bake, write nothing
 # model pipeline (see §8; export LD_LIBRARY_PATH first in the sandbox)
 bun run scripts/prep-chicken.ts   <in> <out>
 bun run scripts/normalize-scale.ts <in> <out> <targetMeters>
@@ -511,9 +558,11 @@ Secrets never in the client bundle. Asset URLs are public CDN paths.
 
 ## 16. Known cleanup / next steps (the backlog any agent should know)
 
-1. **Combo baking for AR** — merge base + add-on GLBs per combination, upload to
-   R2, wire `resolveArModel()`. This makes add-ons appear in OS AR (today AR drops
-   the base dish only).
+1. **Combo baking for AR** — ✅ **built** (`scripts/bake-combos.ts`, variant-only
+   scope, verified end-to-end). Remaining: author the side/add-on **component
+   GLBs** (`public/models/components/<optionId>.glb`), then `bun run bake:combos`
+   - `assets:sync`. Optional: widen scope to add-on permutations (extend
+     `comboKey` + the baker's enumeration); generate USDZ combos for iOS.
 2. **iOS AR** — generate USDZ per dish (and per combo); flip `USDZ_READY` in
    `data/restaurant.ts`; verify Quick Look real-scale.
 3. **Real add-on GLBs** — replace the primitive placeholders; just set `modelUrl`

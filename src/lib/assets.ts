@@ -13,3 +13,7 @@ export const dishModelUrl = (dishId: string) =>
 
 export const dishUsdzUrl = (dishId: string) =>
   assetUrl(`models/dishes/${dishId}.usdz`);
+
+/** Pre-baked AR combo (base dish + chosen variant), keyed by lib/combo.ts. */
+export const comboModelUrl = (key: string) =>
+  assetUrl(`models/combos/${key}.glb`);

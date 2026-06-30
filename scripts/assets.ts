@@ -1,6 +1,7 @@
 /**
- * R2 asset manager for dish models. Keeps the bucket in sync with the local
- * `public/models/dishes/` directory, which is the source of truth.
+ * R2 asset manager for 3D models. Keeps the bucket in sync with the local
+ * `public/models/dishes/` and `public/models/combos/` directories (the source
+ * of truth; combos are produced by `bun run bake:combos`).
  *
  *   bun run assets:list           # show remote objects + drift vs local
  *   bun run assets:push           # upload all local GLB/USDZ (content-typed)
@@ -18,9 +19,15 @@ import { join } from "node:path";
 const ACCOUNT_ID =
   process.env.CLOUDFLARE_ACCOUNT_ID ?? "09abb782bf38f116f993da799ee6e023";
 const BUCKET = process.env.R2_BUCKET ?? "menuviz-assets";
-const LOCAL_DIR = "public/models/dishes";
-const KEY_PREFIX = "models/dishes";
 const CACHE_CONTROL = "public, max-age=31536000, immutable";
+
+// Local source dirs ↔ remote key prefixes. Both stay in sync with the bucket;
+// combos are produced by `bun run bake:combos`.
+type Source = { dir: string; prefix: string };
+const SOURCES: Source[] = [
+  { dir: "public/models/dishes", prefix: "models/dishes" },
+  { dir: "public/models/combos", prefix: "models/combos" },
+];
 
 const CONTENT_TYPES: Record<string, string> = {
   ".glb": "model/gltf-binary",
@@ -46,11 +53,19 @@ function extOf(name: string): string {
   return dot === -1 ? "" : name.slice(dot).toLowerCase();
 }
 
-function localAssets(): string[] {
-  if (!existsSync(LOCAL_DIR)) return [];
-  return readdirSync(LOCAL_DIR)
-    .filter((name) => extOf(name) in CONTENT_TYPES)
-    .sort();
+type LocalAsset = { path: string; key: string };
+
+function localAssets(): LocalAsset[] {
+  const assets: LocalAsset[] = [];
+  for (const { dir, prefix } of SOURCES) {
+    if (!existsSync(dir)) continue;
+    for (const name of readdirSync(dir).sort()) {
+      if (extOf(name) in CONTENT_TYPES) {
+        assets.push({ path: join(dir, name), key: `${prefix}/${name}` });
+      }
+    }
+  }
+  return assets;
 }
 
 const api = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/r2/buckets/${BUCKET}`;
@@ -81,8 +96,8 @@ async function deleteRemote(key: string): Promise<void> {
   if (!res.ok) fail(`delete failed for ${key}: HTTP ${res.status}`);
 }
 
-function uploadLocal(name: string): boolean {
-  const key = `${KEY_PREFIX}/${name}`;
+function uploadLocal(asset: LocalAsset): boolean {
+  const { path, key } = asset;
   const result = spawnSync(
     "bunx",
     [
@@ -92,10 +107,10 @@ function uploadLocal(name: string): boolean {
       "put",
       `${BUCKET}/${key}`,
       "--file",
-      join(LOCAL_DIR, name),
+      path,
       "--remote",
       "--content-type",
-      CONTENT_TYPES[extOf(name)],
+      CONTENT_TYPES[extOf(path)],
       "--cache-control",
       CACHE_CONTROL,
     ],
@@ -121,7 +136,7 @@ function uploadLocal(name: string): boolean {
 async function cmdList(): Promise<void> {
   const remote = await listRemote();
   const remoteKeys = new Set(remote.map((o) => o.key));
-  const localKeys = new Set(localAssets().map((n) => `${KEY_PREFIX}/${n}`));
+  const localKeys = new Set(localAssets().map((a) => a.key));
 
   console.log(`Remote (${BUCKET}): ${remote.length} object(s)`);
   for (const o of remote.sort((a, b) => a.key.localeCompare(b.key))) {
@@ -137,17 +152,19 @@ async function cmdList(): Promise<void> {
 }
 
 async function cmdPush(): Promise<void> {
-  const names = localAssets();
-  if (!names.length) fail(`no GLB/USDZ files in ${LOCAL_DIR}`);
-  console.log(`Uploading ${names.length} asset(s) to ${BUCKET}...`);
+  const assets = localAssets();
+  if (!assets.length) {
+    fail(`no GLB/USDZ files in ${SOURCES.map((s) => s.dir).join(" or ")}`);
+  }
+  console.log(`Uploading ${assets.length} asset(s) to ${BUCKET}...`);
   let ok = 0;
-  for (const name of names) if (uploadLocal(name)) ok += 1;
-  console.log(`Done: ${ok}/${names.length} uploaded.`);
-  if (ok !== names.length) process.exit(1);
+  for (const asset of assets) if (uploadLocal(asset)) ok += 1;
+  console.log(`Done: ${ok}/${assets.length} uploaded.`);
+  if (ok !== assets.length) process.exit(1);
 }
 
 async function cmdPrune(dryRun: boolean): Promise<void> {
-  const localKeys = new Set(localAssets().map((n) => `${KEY_PREFIX}/${n}`));
+  const localKeys = new Set(localAssets().map((a) => a.key));
   const stale = (await listRemote())
     .map((o) => o.key)
     .filter((k) => !localKeys.has(k));
@@ -174,8 +191,11 @@ async function cmdRm(args: string[]): Promise<void> {
     if (arg.includes("/")) {
       targets.add(arg);
     } else {
-      for (const ext of Object.keys(CONTENT_TYPES)) {
-        targets.add(`${KEY_PREFIX}/${arg}${ext}`);
+      // Bare id → every source prefix × known extension.
+      for (const { prefix } of SOURCES) {
+        for (const ext of Object.keys(CONTENT_TYPES)) {
+          targets.add(`${prefix}/${arg}${ext}`);
+        }
       }
     }
   }

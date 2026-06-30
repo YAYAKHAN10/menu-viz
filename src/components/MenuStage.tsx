@@ -238,7 +238,9 @@ export default function MenuStage({
 
   function startAr() {
     trackMenuEvent("ar_launched", dishContext);
-    const ok = launchAr(dish, trayAddOns);
+    // AR scope is variants-only (see lib/combo.ts); add-ons don't change the
+    // baked combo, so only the variant selection is passed through.
+    const ok = launchAr(dish, variantSelection);
 
     if (!ok) {
       void openCapture();
