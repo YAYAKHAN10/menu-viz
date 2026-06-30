@@ -4,21 +4,48 @@
   /* The app surface is black (or the live camera) — see DESIGN.md "Monochrome
      + Living Accent". No warm neutral anywhere; the old cream value was an
      anti-reference token waiting to leak into any new surface. */
-  --background: #000000;
-  --foreground: #ffffff;
+  --background: #0a0a0a;
+  --foreground: #e5e5e5;
+
+  /* Motion tokens — exponential ease-out curves (no bounce). */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Icon swap (transitions.dev) — crossfade two icons in one slot. */
+  --icon-swap-dur: 250ms;
+  --icon-swap-blur: 2px;
+  --icon-swap-start-scale: 0.25;
+  --icon-swap-ease: ease-in-out;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+
+  /* DM Sans is the default + display face; Geist for UI labels + tabular nums. */
+  --font-sans: var(--font-dm-sans);
+  --font-display: var(--font-dm-sans);
+  --font-geist: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Dimension surfaces + monochrome ink ramp (no chroma — the dish is the only
+     saturated colour). */
+  --color-void: #0a0a0a;
+  --color-char: #1d1d1d;
+  --color-iron: #3d3d3d;
+  --color-ink: #282828;
+  --color-fog: #686868;
+  --color-mist: #c2c2c2;
+  --color-ash: #b2b2b2;
+  --color-bone: #e5e5e5;
+  --color-paper: #ffffff;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 button,
@@ -33,4 +60,197 @@ input {
 
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* Diner stage backdrop: soft monochrome glows hugging the top and bottom edges
+   with a darker middle, so the 3D dish floats and pops in the centre. Lives
+   behind the transparent canvas — never over the dish. Stays monochrome to keep
+   the dish the only saturated colour (DESIGN.md). */
+.stage-backdrop {
+  background:
+    /* warm "sun" glow rising from the bottom centre */
+    radial-gradient(
+      58% 42% at 50% 82%,
+      rgba(226, 143, 82, 0.85) 0%,
+      rgba(226, 143, 82, 0) 62%
+    ),
+    /* horizon: deep green-black top → warm amber → cream base */
+    linear-gradient(
+      to bottom,
+      #111c14 0%,
+      #131d16 20%,
+      #21211a 34%,
+      #4a3b25 48%,
+      #876741 60%,
+      #c6a275 72%,
+      #ece3c0 86%,
+      #fafae6 100%
+    );
+}
+
+/* Fine, desaturated film grain over the backdrop for texture. `screen` so it
+   actually lifts on a near-black base (overlay/soft-light crush to nothing on
+   dark). opacity = strength, baseFrequency = grain size — both safe to tune. */
+.stage-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  opacity: 0.04;
+  mix-blend-mode: overlay;
+}
+
+/* Dish name/price swap when the active dish changes. */
+@keyframes dish-meta-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-dish-meta {
+  animation: dish-meta-in 360ms var(--ease-out-quart) both;
+}
+
+/* Staggered row reveal as the menu sheet opens. */
+@keyframes row-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.row-reveal {
+  animation: row-reveal 400ms var(--ease-out-quart) both;
+  /* Cap the cascade so long menus don't drag (first ~12 rows stagger). */
+  animation-delay: calc(min(var(--i, 0), 12) * 40ms);
+}
+
+/* Idle nudge on the menu tab, inviting the pull-down. */
+@keyframes tab-hint {
+  0%,
+  72%,
+  100% {
+    transform: translateY(0);
+  }
+  84% {
+    transform: translateY(3px);
+  }
+}
+
+.tab-hint {
+  animation: tab-hint 3.4s var(--ease-out-quart) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-dish-meta,
+  .row-reveal,
+  .tab-hint {
+    animation: none;
+  }
+}
+
+/* Container morph: the "Full menu" pill and the menu sheet share this
+   view-transition-name, so opening tweens the box — size, position, and corner
+   radius — from the pill into the sheet (and back on close). */
+::view-transition-group(menu-morph),
+::view-transition-group(dish-card),
+::view-transition-group(dish-stage) {
+  /* --ease-out-quint == transitions.dev --ease-smooth-out, the catalog curve
+     for resize / position / container morphs. */
+  animation-duration: 360ms;
+  animation-timing-function: var(--ease-out-quint);
+}
+
+::view-transition-image-pair(menu-morph),
+::view-transition-image-pair(dish-card) {
+  overflow: hidden;
+  border-radius: 1.5rem;
+}
+
+/* Dish navigation: the dish-stage box slides like a conveyor between dishes —
+   the old dish exits one side as the next enters from the other, clipped to the
+   viewer box. Scoped to nav via :root[data-vt] so it doesn't touch the customise
+   morph (which also animates dish-stage). Reduced motion skips the whole VT. */
+::view-transition-image-pair(dish-stage) {
+  overflow: hidden;
+}
+:root[data-vt="next"]::view-transition-old(dish-stage) {
+  animation: stage-slide-out-left 440ms var(--ease-out-quint) both;
+}
+:root[data-vt="next"]::view-transition-new(dish-stage) {
+  animation: stage-slide-in-right 440ms var(--ease-out-quint) both;
+}
+:root[data-vt="prev"]::view-transition-old(dish-stage) {
+  animation: stage-slide-out-right 440ms var(--ease-out-quint) both;
+}
+:root[data-vt="prev"]::view-transition-new(dish-stage) {
+  animation: stage-slide-in-left 440ms var(--ease-out-quint) both;
+}
+@keyframes stage-slide-out-left {
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes stage-slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes stage-slide-out-right {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes stage-slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+/* On browsers without View Transitions (older iOS Safari) the card morph
+   degrades to instant — give the revealed options a gentle fade-rise instead. */
+@supports not (view-transition-name: none) {
+  .customise-options {
+    animation: dish-meta-in 300ms var(--ease-out-quart) both;
+  }
+}
+
+/* Icon swap — the matching icon fades in; the other fades out with blur +
+   scale (transitions.dev). Used by the Customise button: plus ↔ tick. */
+.t-icon-swap {
+  position: relative;
+  display: inline-grid;
+}
+.t-icon-swap .t-icon {
+  grid-area: 1 / 1;
+  transition:
+    opacity var(--icon-swap-dur) var(--icon-swap-ease),
+    filter var(--icon-swap-dur) var(--icon-swap-ease),
+    transform var(--icon-swap-dur) var(--icon-swap-ease);
+  will-change: opacity, filter, transform;
+}
+.t-icon-swap[data-state="a"] .t-icon[data-icon="a"],
+.t-icon-swap[data-state="b"] .t-icon[data-icon="b"] {
+  opacity: 1;
+  filter: blur(0);
+  transform: scale(1);
+}
+.t-icon-swap[data-state="a"] .t-icon[data-icon="b"],
+.t-icon-swap[data-state="b"] .t-icon[data-icon="a"] {
+  opacity: 0;
+  filter: blur(var(--icon-swap-blur));
+  transform: scale(var(--icon-swap-start-scale));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-icon-swap .t-icon {
+    transition: none !important;
+  }
 }
