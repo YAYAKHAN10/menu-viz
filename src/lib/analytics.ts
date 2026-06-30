@@ -15,6 +15,8 @@ export type AnalyticsContext = {
   direction?: "next" | "previous";
   mode?: "categories" | "dishes";
   source?: string;
+  /** Campaign / QR source from the tracking link (?src=). */
+  campaign?: string;
 };
 
 export type MenuAnalyticsEvent =
@@ -32,7 +34,13 @@ export type MenuAnalyticsEvent =
   | "model_load_ready"
   | "model_load_slow"
   | "model_load_error"
-  | "model_preload_failed";
+  | "model_load_retry"
+  | "model_preload_failed"
+  | "addon_toggled"
+  | "capture_open"
+  | "capture_taken"
+  | "capture_failed"
+  | "share";
 
 export function trackMenuEvent(
   eventName: MenuAnalyticsEvent,

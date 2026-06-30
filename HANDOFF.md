@@ -1,236 +1,291 @@
 # HANDOFF.md — menuviz.app
 
-> **Purpose of this doc:** brief a fresh Claude Code session (and any human dev)
-> on the _entire_ project — what we're building, why every major decision was
-> made, what's in scope for v1 vs later, and exactly where to start. Read this
-> once at the start of a workstream. For day-to-day rules and conventions, use
-> `CLAUDE.md`.
+> **Purpose:** brief a fresh Claude Code session (and any human dev) on the
+> _entire_ project — what we're building, why every major decision was made,
+> **what is actually built today**, and what's next. Read this once at the start
+> of a workstream. For the codebase map and day-to-day rules, use `CLAUDE.md`.
+>
+> Last full sync: **2026-06-30**.
+
+---
+
+## 0. Where the project is right now (read first)
+
+The **core diner loop is built, working, and deploy-previewed** on a Cloudflare
+Worker:
+
+> **scan → browse a live 3D menu over the camera → customise a dish with add-ons
+> → drop it on your table in AR (Android) → share a branded photo.**
+
+What exists today:
+
+- A **camera-first, single-screen** diner experience (category strip, swipe
+  between items, drag-to-rotate, tap-to-customise) built on **react-three-fiber**.
+- A **live add-on configurator** — each add-on is its own model toggled on the
+  tray (primitive placeholders until real GLBs land), with live price roll-up.
+- **Android AR** via Scene Viewer (ARCore intent) at **true real-world scale**;
+  **iOS** wired for Quick Look but off until USDZ assets exist.
+- The **branded share-photo compositor** (works on both platforms, no SLAM).
+- **Two real optimised models** (beef burger, crispy chicken) deployed to R2.
+- **Per-branch menus** (availability + pricing) and **dynamic QR tracking links**.
+- The full **3D asset pipeline** (gltf-transform) + R2 sync tooling.
+
+What is **not** done yet (the backlog): add-ons inside AR (needs pre-baked combo
+files), iOS AR (needs USDZ), real add-on GLBs, the analytics sink, a service
+worker, and the Supabase data layer. Details in §9 and `CLAUDE.md §16`.
+
+> **Architecture note for anyone holding the old mental model:** we no longer use
+> `<model-viewer>`, and the UI is no longer a vertical "Stories card feed." The
+> preview is our own react-three-fiber scene (so add-ons can toggle live), AR
+> launches the OS viewers directly, and the home base is a camera-first 3D stage.
+> See §5.
 
 ---
 
 ## 1. The vision in one breath
 
 People at restaurants want to _see_ what they're about to order. menuviz.app lets
-a diner **scan a QR code, swipe a gorgeous menu, and see any dish rendered in AR
-at true real-world scale on their own table** — from any angle, clean and
-proper — then **compose a beautiful watermarked photo to post to their Stories.**
+a diner **scan a QR code, browse a gorgeous 3D menu over their camera, customise a
+dish, and see it in AR at true real-world scale on their own table** — then
+**compose a beautiful watermarked photo to post to their Stories.**
 
-It's free for diners. It's free for restaurants in v1. We bootstrap, bleed, and
-saturate one city until the flywheel is undeniable, then raise to replicate.
+Free for diners. Free for restaurants in v1. We bootstrap and saturate one city
+until the flywheel is undeniable, then raise to replicate.
 
-We are **not** trying to be first. The category is validated. We are trying to be
-the **best execution** — winning on UX, speed, and a built-in viral loop — and to
-become the default, the staple, the thing every cool spot has.
+We are **not** trying to be first — the category is validated. We are trying to be
+the **best execution**, winning on UX, speed, and a built-in viral loop.
 
 ---
 
 ## 2. Why now / why this works (the validation)
 
-- AR menus are a proven lever, not a gamble. Independent-operator data across
-  hundreds of restaurants reports **~20–26% average-order-value uplift** within
-  ~90 days, plus **~22% fewer order errors** (expectations match what arrives).
-- A 2026 academic study found AR menus **increase intent to visit and intent to
-  recommend** vs printed or plain QR menus — i.e. they're inherently shareable.
-- WebAR (scan → browser, no app) is now the dominant delivery model for this use
-  case. The friction-killer _is_ the product.
+- AR menus are a proven lever: independent-operator data reports **~20–26% AOV
+  uplift** in ~90 days and **~22% fewer order errors**.
+- A 2026 study found AR menus **increase intent to visit and to recommend** vs
+  printed/plain-QR menus — i.e. inherently shareable.
+- WebAR (scan → browser, no app) is the dominant delivery model. The
+  friction-killer _is_ the product.
 
-So demand and behavior are established. Our job is execution and distribution.
+Demand and behaviour are established. Our job is execution and distribution.
 
 ---
 
 ## 3. The market and our wedge
 
-**Incumbents / competition:** dedicated AR-menu SaaS (e.g. Kabaq — photogrammetry
-models, WebAR via QR, 800+ venues), object-capture + single-photo-GenAI tools
-(e.g. AR Code), no-code WebAR platforms (e.g. Kivicube), and regional licensing
-plays. Big brands have run AR menu activations (e.g. Pizza Hut at scale).
+**Incumbents:** dedicated AR-menu SaaS (e.g. Kabaq — photogrammetry, WebAR via QR),
+object-capture + single-photo-GenAI tools (e.g. AR Code), no-code WebAR platforms
+(e.g. Kivicube). Big brands have run AR menu activations.
 
 **The pattern:** every competitor sells _to the restaurant_ and treats the diner
 experience as a means to an end.
 
-**Our wedge:** we optimize for the **diner**, and let the diner pull us into
-restaurants. The growth engine isn't a sales team — it's the **social share**.
-Two consequences shape the whole build:
+**Our wedge:** optimise for the **diner**, and let the diner pull us into
+restaurants. The growth engine isn't a sales team — it's the **social share**. Two
+consequences shape the whole build:
 
-1. The **diner UX and load speed** must be best-in-class (it's the battleground).
-2. The **watermarked share photo is customer acquisition**, so it is a
-   first-class, product-critical feature — never an afterthought.
+1. The **diner UX and load speed** must be best-in-class (the battleground).
+2. The **watermarked share photo is customer acquisition** — a first-class,
+   product-critical feature, never an afterthought.
 
 Secondary differentiator: **hero dishes are _captured_, not generic-AI-generated.**
-Real food that looks real is what gets shared. Competitors leaning on single-photo
-GenAI produce the generic-looking models we beat on.
+Real food that looks real is what gets shared.
 
 ---
 
 ## 4. The full product, end to end
 
-### 4.1 Diner journey (primary)
+### 4.1 Diner journey (primary) — as built
 
-1. **Scan** a QR on the table → opens `menuviz.app/{brand}/{location}` in the
-   mobile browser. No app, no login.
-2. **Swipe the feed** — a full-bleed, Stories-style vertical card feed, one dish
-   per card, real photography as the poster, a single obvious **"View on my
-   table"** button, and tasteful overlays (portion, ingredients, price).
-3. **View in AR** — tap a dish; it appears on the real table at true scale via the
-   OS-native AR viewer (Quick Look on iOS, Scene Viewer on Android). Orbit, see
-   any angle, real proportions.
-4. **Compose & share** — open the capture screen, frame the dish on the table,
-   we composite the 3D model over the camera frame on a canvas, add a tasteful
-   **menuviz watermark + the restaurant's @handle**, and one-tap export to
-   Instagram / TikTok / WhatsApp Stories.
-5. The shared photo seeds the next diner ("what app is that? — scan to see your
-   food in 3D"). Loop closes.
+1. **Scan** a QR on the table → opens `menuviz.app/restaurants/{brand}?branch={loc}`
+   in the mobile browser. No app, no login. The link carries `?src=` (campaign)
+   and optional `?d=` (deep-link a specific dish).
+2. **Browse** — a camera-first single screen. The current dish renders as **live
+   3D over the camera feed**. A **category strip** sits on top; **swipe left/right**
+   moves between items; **drag** rotates the dish.
+3. **Customise** — **tap the dish** to open the configurator and toggle add-ons
+   (fries, drink, extra cheese, …). Each add-on appears as its **own model on the
+   tray** in real time, and the price rolls up live.
+4. **Drop in AR** — **"View on my table"** launches the OS AR viewer (Scene Viewer
+   on Android today) and places the dish at **true real-world scale** on the table.
+5. **Compose & share** — **"Share a photo"** snapshots the configured plate from
+   the WebGL canvas, composites it over the camera frame with a **menuviz
+   watermark + dish/price**, and opens the native share sheet (IG/TikTok/WhatsApp).
+6. The shared photo seeds the next diner. Loop closes.
+
+> Per the AR constraint (§5), customisation and item-swiping happen in **our** UI;
+> AR drops the **finished** plate. This "browse-and-drop" model works on iPhone and
+> Android. Live toggling _inside_ an AR session is a v2 (Android WebXR) idea.
 
 ### 4.2 Restaurant journey (secondary)
 
-1. We onboard them **done-for-you**: we capture their hero dishes, generate the
-   long tail, and hand them a QR table-tent + sticker. They do nothing.
+1. **Done-for-you onboarding:** we capture hero dishes, generate the long tail, and
+   hand them a QR table-tent + sticker. They do nothing.
 2. They get a hosted, always-fresh 3D menu, higher AOV, fewer "that's not what I
-   expected" complaints, and free social marketing every time a diner shares.
-3. (Later) a lightweight **CMS/studio** lets multi-location brands manage menus,
-   pricing, and availability per franchise.
+   expected" complaints, and free social marketing on every share.
+3. (Later) a lightweight CMS/studio for multi-location brands. The data model
+   already supports **per-branch menus, pricing, and availability** (§ data model
+   in `CLAUDE.md`), and `/links` generates a trackable QR per branch and per dish.
 
 ---
 
-## 5. AR platform strategy — explained (this is the crux)
+## 5. AR + 3D strategy — explained (this is the crux)
 
-The single most important technical reality: **iOS Safari does not support WebXR.**
-This is current as of 2026 — the Safari settings flag exists but is
-non-functional, confirmed on Apple's own developer forums. Markerless in-browser
-world tracking (SLAM) is therefore **not freely available on iPhone** the way it
-is on Android.
+The single most important technical reality: **iOS Safari does not support WebXR**
+(current as of 2026; the Safari flag is non-functional). Markerless in-browser SLAM
+is therefore not freely available on iPhone the way it is on Android.
 
-So we use a **barbell** that ships fast and free on both platforms:
+A second, equally important reality drove our architecture: **the OS AR viewers
+(Android Scene Viewer, iOS Quick Look) are single-object viewers that display one
+pre-baked file from a URL.** You cannot toggle add-ons or change items _inside_
+them. So:
 
-- **Android** has native WebXR (ARCore). But we don't even need custom WebXR for
-  v1: **Scene Viewer** (launched via `<model-viewer>`) already does ARCore
-  markerless SLAM placement at real scale, for free, in an OS viewer.
-- **iOS** uses **AR Quick Look** (USDZ) via the same `<model-viewer>` — ARKit
-  markerless placement at real scale, free, OS viewer.
-- **Both** get the **branded share photo via a custom canvas compositor**, which
-  needs _no tracking at all_ — a frozen, composed shot doesn't require live SLAM.
+### The two layers
+
+- **Live preview = ours (react-three-fiber).** To show multiple toggleable add-on
+  models at once, the preview is our own three.js scene (`DishStage`), not
+  `<model-viewer>` (which is single-model). This is where browse + customise +
+  rotate happen, on both platforms.
+- **OS AR drop = the native viewers, launched directly.** `lib/ar.ts` launches
+  **Scene Viewer** on Android via an ARCore `intent://` (with `resizable=false`
+  for fixed real-world scale) and **Quick Look** on iOS via a `rel="ar"` anchor.
+  We dropped `<model-viewer>` entirely — Scene Viewer's intent is Google's own
+  documented launch, and one 3D engine (R3F) is cleaner.
+- **Branded share photo = a custom canvas compositor** (`composeShareImage.ts`),
+  which needs **no tracking at all** — a composed shot doesn't require live SLAM.
   This is why the growth engine works identically on both platforms despite the
-  iOS AR "downgrade."
+  iOS AR limits.
 
-### Why no physical marker in v1
+### Add-ons in AR → pre-baked combinations ("browse-and-drop")
 
-Earlier we considered a table-tent/coaster as an AR anchor. **It's unnecessary
-for placement** — both platforms place markerless. A marker only ever bought a
-workaround for iOS's lack of a _custom in-page multi-object live UI_, which is a
-v2 concern. v1 ships markerless and marker-free.
+Because OS AR takes one file, each add-on is authored as its **own GLB**, and the
+chosen **combination** is pre-baked into a single GLB (+ USDZ) in the pipeline and
+served from R2. The diner configures in our UI; AR drops the finished plate.
+`resolveArModel()` in `lib/ar.ts` is the seam that maps a selected add-on set →
+its baked combo URL. **Today it returns the base dish** (combos not baked yet).
 
-### What the iOS "downgrade" actually costs (and doesn't)
+### Real-world scale is the product
 
-- **Costs (acceptable for v1):** no custom in-page UI during the live AR view;
-  effectively single-object live placement; AR happens in Apple's viewer chrome.
-- **Does NOT cost:** real-world scale (preserved), the share photo (custom &
-  fully branded via the compositor), or the mental model (tap dish → see on table).
+GLBs are authored in **meters** (the pipeline's `normalize-scale.ts` enforces this;
+burger ≈ 0.12 m, chicken ≈ 0.15 m), and AR launches with fixed scale so the dish
+lands the right size on the table. Verify scale survives every conversion.
 
-### The handoff seam (design carefully)
+### Compression must be Scene Viewer-safe
 
-On iOS the user leaves our branded web UI to enter Quick Look, then returns. Make
-the **entry and return branded and intentional** so it never feels like falling
-out of the product. This seam is a known UX risk — treat it as a feature, not an
-afterthought.
+Compress geometry with **Draco** and textures as **JPEG/KTX2** — **not** meshopt /
+WebP. meshopt + webp render in our in-page viewer but can break Scene Viewer
+placement. (See `CLAUDE.md §8` for the exact recipe.)
 
 ### Roadmap beyond v1 for AR
 
-- **v2 — Android rich mode:** custom in-page WebXR (three.js `WebXRManager`) for
-  live multi-object arrangement with our own UI inside the page.
-- **v2 — iOS parity attempt:** marker-anchored **MindAR** (free, open, works in
-  iOS Safari) using the table-tent/coaster as anchor to restore multi-object live
-  preview + custom UI on iPhone.
-- **Escape hatch (only if needed):** **Variant Launch** — a WebAR SDK that
-  publishes WebXR to iOS _without per-view charges_ (you remove one line if Apple
-  ever ships Safari WebXR). Sanctioned because it's not the per-view model we
-  refuse. Not in v1.
+- **v2 — Android live AR:** custom in-page WebXR (`@react-three/xr` /
+  `WebXRManager`) for live multi-object arrangement + add-on toggling **inside**
+  the AR session. Android-only.
+- **v2 — iOS parity:** marker-anchored MindAR (table tent as anchor) for rich live
+  AR on iPhone, if we want it. Browse-and-drop doesn't need it.
+- **Escape hatch (only if needed):** Variant Launch — WebAR to iOS without
+  per-view charges. Sanctioned because it isn't the per-view model we refuse.
 
 ---
 
-## 6. The 3D asset pipeline — explained
+## 6. The 3D asset pipeline — built and proven
 
-The dishes must look **real and be the actual restaurant's dish** for hero items.
-This is a moat and the biggest cost lever.
+Hero dishes must look **real and be the actual restaurant's dish** — a moat and the
+biggest cost lever. The pipeline exists today (`scripts/` + `gltf-transform`) and
+produced the two demo models from raw Meshy/Tripo exports.
 
-- **Capture (hero dishes):** photogrammetry via RealityScan (Epic) / similar.
-  Build a repeatable rig (turntable + lightbox + phone). Food is finicky for
-  photogrammetry (gloss, translucency, reflective sauces/glassware), so:
-- **AI generation (long tail + tricky items):** prefer **self-hosted open models
-  — TRELLIS / Hunyuan3D — on our own GPU** to drive marginal cost toward zero, vs
-  paying per-call to Meshy/Tripo/Rodin/Luma (fine for prototyping, not for our
-  cost structure at scale).
-- **Optimize:** `gltf-transform` — Draco/meshopt geometry compression, KTX2/Basis
-  texture compression, texture-resolution caps — to hit ≤ ~1–3 MB per model.
-- **Convert:** GLB → USDZ for iOS Quick Look. **Verify real-world scale survives**
-  (scale is the entire promise).
-- **Publish:** GLB + USDZ + poster to Cloudflare R2; versioned `models` rows.
+- **Capture (hero):** photogrammetry (RealityScan / similar). Food is finicky
+  (gloss, translucency), so —
+- **AI generation (long tail / tricky):** prefer **self-hosted open models
+  (TRELLIS / Hunyuan3D)** over per-call APIs to drive marginal cost to ~zero.
+- **Prep:** raw exports are often broken — e.g. the Meshy chicken shipped
+  POSITION-only (no normals/material). `prep-chicken.ts` welds, computes normals,
+  and assigns a PBR material. Generalise per-source as needed.
+- **Normalise scale:** `normalize-scale.ts` scales to real-world meters **before**
+  optimisation.
+- **Optimise:** `gltf-transform optimize` — **Draco** geometry + **JPEG** textures
+  (Scene Viewer-safe), simplify, texture cap ≤ 1K → **≤ ~1–3 MB** (current models:
+  1.21 MB / 748 KB). Validate + inspect the bbox.
+- **Convert (iOS):** GLB → USDZ for Quick Look; verify scale survives. **Not done
+  yet** → `USDZ_READY=false`.
+- **Publish:** `bun run assets:sync` uploads to **Cloudflare R2** with correct
+  content-types and prunes stale objects.
+- **Next:** **combo baking** — merge base + add-on GLBs per combination for AR.
 
-The hybrid (capture hero, generate tail) lets us go live per restaurant for
-roughly **$0 marginal** (pure AI path) up to **~$200–600** in labor when we lovingly
-capture hero dishes. Spend the labor early — showcase venues are marketing.
+The hybrid (capture hero, generate tail) lets us go live per restaurant for roughly
+**$0 marginal** (pure AI) up to **~$200–600** in labour for lovingly-captured hero
+dishes. Spend the labour early — showcase venues are marketing.
 
 ---
 
 ## 7. Architecture & infra — the rationale
 
-The backend is **mostly static assets + a little config + a small CMS.** It is
-not a compute problem. So:
+The backend is **mostly static assets + a little config + a small CMS.** Not a
+compute problem. So:
 
-- **Assets on Cloudflare R2 + CDN** — the decision that matters most for cost.
-  R2 has **zero egress fees**; we serve millions of 3D-model downloads for free,
-  where S3 egress would quietly bleed us to death.
-- **Supabase** for menu data, auth, and the restaurant CMS — fast to build, real
-  Postgres, generous. **Never** put the heavy binaries here.
-- **Frontend** on Cloudflare Workers (SSR via OpenNext); the worker also handles
-  the few dynamic endpoints. **No bespoke AWS Lambda/EC2** — it adds ops drag for
-  a small team optimizing for speed, with no benefit at our shape.
-- **PWA + service worker**: cache-first for assets, prefetch next dish → a re-scan
-  is instant, and everything tolerates bad/absent restaurant Wi-Fi over cellular.
-- **No on-prem hardware / local network device.** It adds cost, install labor,
-  and a failure point for zero AR benefit (AR renders on the diner's phone
-  regardless). The fix for weak signal is smaller assets + CDN, not a box.
+- **Assets on Cloudflare R2 + CDN** — the decision that matters most for cost. R2
+  has **zero egress**; we serve millions of model downloads for free where S3
+  egress would bleed us. (Models live in `public/models/dishes/` as the local
+  source-of-truth and on R2 for delivery; the app resolves via
+  `NEXT_PUBLIC_CDN_BASE`.)
+- **Frontend on Cloudflare Workers** (SSR via OpenNext). No bespoke AWS.
+- **Supabase** (planned) for menu data, auth, and the CMS — fast, real Postgres.
+  **Not yet wired**; data is hardcoded in `data/restaurant.ts`. Never put heavy
+  binaries here.
+- **PWA + service worker** (planned): cache-first for assets, prefetch next dish →
+  instant re-scan, tolerant of bad/absent restaurant Wi-Fi over cellular.
+- **No on-prem hardware.** AR renders on the diner's phone regardless; the fix for
+  weak signal is smaller assets + CDN, not a box.
 
 ---
 
 ## 8. Performance philosophy
 
-Speed _is_ the UX. A beautiful feed that takes 9 seconds loses to a plain one
-that takes 2. Hard budgets live in `CLAUDE.md §7`. The feed is the shared front
-door and the home of the "win on UX" thesis — it must be genuinely beautiful and
-render in **under 3 seconds**, with AR as the payoff, never the gate.
+Speed _is_ the UX. A beautiful menu that takes 9 seconds loses to a plain one that
+takes 2. Hard budgets live in `CLAUDE.md §10`. The browse stage is the shared front
+door — it must be genuinely beautiful and render in **under 3 seconds**, with AR as
+the payoff, never the gate. Honour `prefers-reduced-motion`.
 
 ---
 
-## 9. v1 scope
+## 9. v1 scope — what's done vs pending
 
-### Must-have (v1 ships with all of these)
+### Shipped (built and deploy-previewed)
 
-- Zero-install PWA; QR → `menuviz.app/{brand}/{location}`; works on iOS Safari
-  **and** Android Chrome.
-- Beautiful, swipe-native 2D card feed (home base on both platforms).
-- Real-scale AR per dish via `<model-viewer>` (Quick Look on iOS, Scene Viewer on
-  Android).
-- **Branded canvas compositor** for the share photo — identical on both
-  platforms, watermark + restaurant handle, export to IG/TikTok/WhatsApp.
-- Per-location routing (menu/pricing/availability + analytics per franchise).
-- Asset pipeline producing optimized GLB + USDZ under budget.
-- Full funnel analytics (scan → … → share), north-star = **share rate**.
-- Cellular-tolerant, cache-first, prefetching.
+- ✅ Zero-install PWA; QR → `menuviz.app/restaurants/{brand}?branch={loc}`; iOS
+  Safari + Android Chrome.
+- ✅ Camera-first single-screen 3D browse (category strip, swipe, rotate).
+- ✅ Live add-on configurator (separate model per add-on, price roll-up).
+- ✅ Real-scale AR on Android (Scene Viewer intent).
+- ✅ Branded canvas compositor for the share photo (both platforms).
+- ✅ Per-location routing + per-branch menus/pricing/availability.
+- ✅ Dynamic QR tracking links per branch + per dish (`/links`).
+- ✅ Asset pipeline producing optimised, Scene-Viewer-safe GLBs; R2 deploy.
+- ✅ Funnel analytics events (north-star = share rate) — through the `sendEvent`
+  seam.
 
-### Explicitly OUT of scope for v1 (don't build yet)
+### Pending for a complete v1
 
-- Custom in-page WebXR on Android (multi-object live arrangement UI).
-- Marker-anchored MindAR on iOS.
-- Variant Launch integration.
-- Restaurant self-serve CMS/studio (start with internal/done-for-you tooling).
-- Ordering / payments (we are visualization, not POS — integrate later if ever).
-- Accounts/login for diners (there are none by design).
-- Native apps.
+- ⏳ **Add-ons in AR** (pre-baked combo GLB/USDZ; `resolveArModel` seam).
+- ⏳ **iOS AR** (generate USDZ; flip `USDZ_READY`).
+- ⏳ **Real add-on GLBs** (placeholders today).
+- ⏳ **Analytics sink** (`sendEvent` is a no-op; pick a privacy-light pipeline).
+- ⏳ **Service worker / PWA** caching + prefetch.
+- ⏳ **Supabase data layer** (hardcoded today).
+- ⏳ **Prod CDN domain** (`cdn.menuviz.app` instead of `*.r2.dev`).
+
+### Explicitly OUT of scope for v1
+
+- Custom in-page WebXR live-AR (Android multi-object) — v2.
+- Marker-anchored MindAR on iOS — v2.
+- Variant Launch.
+- Restaurant self-serve CMS/studio (done-for-you tooling first).
+- Ordering / payments (we are visualisation, not POS).
+- Diner accounts/login (none by design). Native apps.
 
 ### Roadmap after v1
 
-- v2: Android rich WebXR mode; iOS marker mode for parity; restaurant CMS;
-  multi-dish "full table setting" composed USDZ scenes; loyalty/return hooks.
+- v2: Android live WebXR mode; iOS marker mode; restaurant CMS; multi-dish "full
+  table setting" composed scenes; loyalty/return hooks.
 - v3: investor-funded replication across cities; deeper brand integrations.
 
 ---
@@ -238,77 +293,58 @@ render in **under 3 seconds**, with AR as the payoff, never the gate.
 ## 10. Success metrics
 
 - **North star: share rate** (shares ÷ sessions) — the viral coefficient.
-- Supporting: scans per table per week; AR-enter rate; capture rate; restaurant
-  retention at 60/90 days; per-venue model-production cost trending down.
+- Supporting: scans/table/week; AR-enter rate; capture rate; restaurant retention
+  at 60/90 days; per-venue model-production cost trending down.
 - Business proof we're building toward: a working flywheel in one beachhead city
-  (e.g. 50–100 retained venues + organic diner growth from social), which is the
-  fundable story. If it blows up (inbound demand outpaces capture capacity),
-  raise immediately on momentum.
+  (≈50–100 retained venues + organic diner growth from social) — the fundable
+  story. If inbound outpaces capture capacity, raise on momentum.
 
 ---
 
 ## 11. Non-negotiables (quick reference)
 
-**Must-haves:** zero-install; true real-world scale; sub-3s feed; best-in-class
-swipe UI; one-tap branded share on both platforms; done-for-you onboarding;
-cellular-tolerant.
+**Must-haves:** zero-install; true real-world scale; sub-3s first render;
+best-in-class browse/customise UX; one-tap branded share on both platforms;
+done-for-you onboarding; cellular-tolerant.
 
-**Must-not-haves:** forced app install; Wi-Fi/hardware dependence; per-view AR
-SDK; S3 egress as CDN; generic AI for hero dishes; bespoke AWS plumbing;
-charging restaurants in v1; spreading thin across cities before saturating one.
-
----
-
-## 12. Open decisions (resolve early, flag in CLAUDE.md once chosen)
-
-> Resolved items are recorded in `CLAUDE.md` §4a (2026-06-29).
-
-1. ✅ **RESOLVED — Next.js (App Router)**, for per-location menu SEO + fast first
-   paint. (Also locked: bun as the package manager.)
-2. ✅ **RESOLVED — Cloudflare Workers** (SSR via `@opennextjs/cloudflare`), not
-   Pages static export and not Vercel — keeps asset + app + edge under one roof.
-3. **Service worker tooling** (Workbox vs framework PWA plugin).
-4. **Analytics implementation** (self-hosted lightweight vs a privacy-first
-   vendor) — must not slow first paint.
-5. **GPU for self-hosted 3D gen** (rented vs in-house workstation) — affects
-   pipeline timeline, not app code.
-6. **Short-link scheme** for physical QRs (`/{brand}/{location}` vs `/r/{code}`).
+**Must-not-haves:** forced app install; Wi-Fi/hardware dependence; per-view AR SDK;
+S3 egress as CDN; generic AI for hero dishes; **meshopt/webp for AR models**;
+`<model-viewer>` back in the preview; bespoke AWS plumbing; charging restaurants in
+v1; spreading thin across cities before saturating one.
 
 ---
 
-## 13. First milestones (suggested order for the Claude Code session)
+## 12. Decisions resolved (full list in `CLAUDE.md §9a`)
 
-> Goal: prove the full diner loop end-to-end with one hardcoded restaurant before
-> building breadth.
+1. ✅ **Next.js (App Router)** + **bun** (strict).
+2. ✅ **Cloudflare Workers** (SSR via OpenNext). Not Pages, not Vercel. (A Vercel
+   integration auto-deploys PRs but its previews are auth-gated — use the Worker
+   preview.)
+3. ✅ **react-three-fiber** for the live preview; **direct Scene Viewer / Quick
+   Look** for AR (`lib/ar.ts`); `model-viewer` removed.
+4. ✅ **Draco + JPEG** for AR-bound models (Scene Viewer compatibility).
+5. ✅ **R2 + CDN** for assets (zero egress).
 
-1. **Scaffold** `apps/web` (chosen framework), TypeScript strict, lint/test,
-   Supabase + R2 clients, env wiring. One throwaway hardcoded menu (e.g. "KFC")
-   served from `menuviz.app/kfc`.
-2. **Feed first.** Build the beautiful swipe card feed with real poster images and
-   placeholder data. Hit the sub-3s budget. This is the product's face — make it
-   excellent before anything else.
-3. **AR launch.** Drop in `@google/model-viewer` behind an `ARProvider`
-   abstraction; one real optimized GLB + USDZ; confirm real-scale placement on a
-   physical iPhone (Quick Look) and Android (Scene Viewer). Get the iOS
-   entry/return seam branded.
-4. **Capture + share.** Build the canvas compositor: camera frame + GLB render +
-   watermark + restaurant handle + native share sheet. Verify it works in iOS
-   Safari. **This is the growth engine — give it real care.**
-5. **Pipeline v0.** Script: optimize a GLB with `gltf-transform`, convert to USDZ,
-   verify scale, upload to R2, write the `models` row. Make producing dish #2 fast.
-6. **Data + routing.** Replace hardcoded menu with Supabase-backed brand/location
-   model; implement per-location routing + the events funnel (scan → share).
-7. **Harden.** Service worker cache-first + prefetch-next; cellular testing;
-   reduced-motion + no-AR orbit fallback; analytics dashboards for share rate.
-
-Only after the loop is proven and instrumented do we widen to more dishes,
-venues, and the v2 AR enhancements.
+**Still open:** service-worker tooling; analytics sink; USDZ generation approach;
+Supabase data layer; short-link scheme (`/{brand}/{location}` vs `/r/{code}`).
 
 ---
 
-## 14. Context links (for the team, not the app)
+## 13. How to get oriented fast (for a new session)
 
-- Business/strategy rationale and competitive detail were worked out in planning
-  conversations; the distilled decisions all live in this doc and `CLAUDE.md`.
-  If a decision here seems arbitrary, it isn't — check §3/§5/§7 for the reasoning
-  before changing it.
+1. Read **`CLAUDE.md`** — it has the full codebase map (every file), the data
+   model, the AR seam, the pipeline commands (with the `LD_LIBRARY_PATH`/sharp
+   gotcha), the analytics events, and the backlog.
+2. Run it: `bun run dev`, open `/` (the default "Stacked" store), `/links` (the QR
+   board), `/restaurants/stacked?branch=airport-express` (a burger-only branch).
+3. The diner loop already works end-to-end — **pick a backlog item** (`CLAUDE.md
+§16`) rather than rebuilding what exists. The highest-value next step is
+   **combo baking so add-ons appear in AR**, then **USDZ for iOS AR**.
+
+---
+
+## 14. Context note
+
+The business/strategy rationale was worked out in planning conversations; the
+distilled decisions live in this doc and `CLAUDE.md`. If a decision here seems
+arbitrary, it isn't — check §3 / §5 / §7 for the reasoning before changing it.
