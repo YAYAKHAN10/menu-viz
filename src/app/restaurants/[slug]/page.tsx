@@ -1,13 +1,23 @@
 import { notFound } from "next/navigation";
 import CameraMenu from "@/components/CameraMenu";
-import { getRestaurantBranch, getRestaurantBySlug } from "@/data/restaurant";
+import {
+  getBranchMenu,
+  getRestaurantBranch,
+  getRestaurantBySlug,
+} from "@/data/restaurant";
+import { toRestaurantMeta } from "@/types/restaurant";
 
 type RestaurantPageProps = {
   params: Promise<{
     slug: string;
   }>;
   searchParams: Promise<{
+    /** Branch id — varies menu, pricing and per-location analytics. */
     branch?: string;
+    /** Campaign / QR source for analytics attribution. */
+    src?: string;
+    /** Deep-link a specific dish (opens straight into it). */
+    d?: string;
   }>;
 };
 
@@ -16,7 +26,7 @@ export default async function RestaurantPage({
   searchParams,
 }: RestaurantPageProps) {
   const { slug } = await params;
-  const { branch: branchId } = await searchParams;
+  const { branch: branchId, src, d: initialDishId } = await searchParams;
   const restaurant = getRestaurantBySlug(slug);
 
   if (!restaurant) {
@@ -24,6 +34,15 @@ export default async function RestaurantPage({
   }
 
   const branch = getRestaurantBranch(slug, branchId);
+  const dishes = getBranchMenu(slug, branch);
 
-  return <CameraMenu restaurant={restaurant} branch={branch} />;
+  return (
+    <CameraMenu
+      restaurant={toRestaurantMeta(restaurant)}
+      branch={branch}
+      dishes={dishes}
+      campaign={src ?? (branchId ? `branch-${branchId}` : "direct")}
+      initialDishId={initialDishId}
+    />
+  );
 }

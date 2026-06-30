@@ -2,16 +2,32 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import CategoryDishCarousel from "@/components/CategoryDishCarousel";
+import MenuStage from "@/components/MenuStage";
 import { trackMenuEvent } from "@/lib/analytics";
-import type { Restaurant, RestaurantBranch } from "@/types/restaurant";
+import type {
+  MenuDish,
+  RestaurantBranch,
+  RestaurantMeta,
+} from "@/types/restaurant";
 
 type CameraMenuProps = {
-  restaurant: Restaurant;
+  restaurant: RestaurantMeta;
   branch: RestaurantBranch | null;
+  /** Dishes resolved for the active branch (availability + price applied). */
+  dishes: MenuDish[];
+  /** Campaign/QR source from the tracking link (?src=), for analytics. */
+  campaign?: string;
+  /** Deep-link target dish (?d=) — opens straight into this dish. */
+  initialDishId?: string;
 };
 
-export default function CameraMenu({ restaurant, branch }: CameraMenuProps) {
+export default function CameraMenu({
+  restaurant,
+  branch,
+  dishes,
+  campaign,
+  initialDishId,
+}: CameraMenuProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [cameraState, setCameraState] = useState<
@@ -24,8 +40,9 @@ export default function CameraMenu({ restaurant, branch }: CameraMenuProps) {
       restaurantName: restaurant.name,
       branchId: branch?.id,
       branchName: branch?.name,
+      campaign,
     }),
-    [branch?.id, branch?.name, restaurant.name, restaurant.slug],
+    [branch?.id, branch?.name, restaurant.name, restaurant.slug, campaign],
   );
 
   useEffect(() => {
@@ -107,6 +124,31 @@ export default function CameraMenu({ restaurant, branch }: CameraMenuProps) {
     [analyticsContext],
   );
 
+  const captureBackgroundFrame = useCallback(() => {
+    const video = videoRef.current;
+
+    if (!video || cameraState !== "live" || video.readyState < 2) {
+      return null;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      return null;
+    }
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    try {
+      return canvas.toDataURL("image/jpeg", 0.9);
+    } catch {
+      return null;
+    }
+  }, [cameraState]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -173,14 +215,20 @@ export default function CameraMenu({ restaurant, branch }: CameraMenuProps) {
             <button
               type="button"
               onClick={() => setCameraAttempt((attempt) => attempt + 1)}
-              className="mt-3 rounded-full border border-white/18 bg-white/10 px-4 py-2 text-xs font-semibold tracking-[0.14em] text-white/78 uppercase active:bg-white/16"
+              className="mt-3 rounded-full border border-white/18 bg-white/10 px-4 py-2.5 text-xs font-semibold tracking-[0.14em] text-white/78 uppercase outline-none focus-visible:ring-2 focus-visible:ring-white/60 active:bg-white/16"
             >
               Try camera
             </button>
           </div>
         )}
 
-        <CategoryDishCarousel restaurant={restaurant} branch={branch} />
+        <MenuStage
+          restaurant={restaurant}
+          branch={branch}
+          dishes={dishes}
+          initialDishId={initialDishId}
+          getBackgroundFrame={captureBackgroundFrame}
+        />
       </section>
     </main>
   );

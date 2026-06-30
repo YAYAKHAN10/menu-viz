@@ -1,233 +1,169 @@
 import { dishModelUrl, dishUsdzUrl } from "@/lib/assets";
-import type { Restaurant } from "@/types/restaurant";
+import type {
+  MenuDish,
+  Restaurant,
+  RestaurantBranch,
+} from "@/types/restaurant";
 
 // iOS Quick Look needs USDZ, which we don't have yet (only GLB). Flip to true
 // once USDZ assets are generated and uploaded to R2 so iOS AR turns on without
-// shipping a broken "View on my table" button.
+// shipping a broken "View on my table" button. Android Scene Viewer uses the GLB
+// and works today.
 const USDZ_READY = false;
 const dishUsdz = (dishId: string) =>
   USDZ_READY ? dishUsdzUrl(dishId) : undefined;
 
 export const restaurants: Restaurant[] = [
   {
-    slug: "demo",
-    name: "MenuViz Demo Grill",
-    cuisine: "Fine dining grill",
+    slug: "stacked",
+    name: "Stacked",
+    cuisine: "Smash burgers & fried chicken",
     location: "Islamabad, Pakistan",
-    defaultBranchId: "main",
-    branches: [
-      {
-        id: "main",
-        name: "Main Branch",
-        address: "Demo dining room",
-        city: "Islamabad",
-        country: "Pakistan",
-      },
-    ],
+    currency: "Rs.",
+    defaultBranchId: "f7-markaz",
     description:
-      "A mobile-first dining menu where guests can open the full list instantly, then inspect selected dishes in 360 degrees or camera-based AR.",
-    heroImageUrl: "/images/fine-dining-grill.png",
-    rating: "4.8",
+      "A two-item demo store: scan, swipe, and drop a true-to-size burger or crispy chicken sandwich onto your own table in AR.",
+    heroImageUrl: "/images/menuviz-hero.png",
+    rating: "4.9",
     dishes: [
       {
-        id: "classic-burger",
-        name: "Smoked Beef Burger",
-        subtitle: "Charred beef, melted cheddar, house sauce",
+        id: "beef-burger",
+        name: "Smash Beef Burger",
+        subtitle: "Double smash patty, cheddar, house sauce",
         description:
-          "A juicy grilled beef burger layered with cheddar, crisp lettuce, tomato, pickles, onions, and a bright house sauce on a glossy brioche bun.",
-        price: 1299,
-        category: "Grill",
-        imageUrl: "/images/dishes/classic-burger.jpg",
-        modelUrl: dishModelUrl("classic-burger"),
-        iosModelUrl: dishUsdz("classic-burger"),
-        prepTime: "14 min",
-        pairing: "Citrus iced tea",
-        highlights: ["Halal beef", "House sauce", "Best seller"],
+          "Two thin-smashed beef patties with melted cheddar, pickles, onions, and a tangy house sauce on a toasted brioche bun.",
+        price: 1290,
+        category: "Burgers",
+        modelUrl: dishModelUrl("beef-burger"),
+        iosModelUrl: dishUsdz("beef-burger"),
+        prepTime: "12 min",
+        pairing: "Salted caramel shake",
+        highlights: ["Double patty", "Halal beef", "Best seller"],
         modelColors: {
           primary: "#c46f32",
-          secondary: "#6f3f24",
-          accent: "#86a85d",
+          secondary: "#7a4a28",
+          accent: "#e08a3c",
         },
+        // Placeholder add-ons (primitive previews) until real GLBs are authored.
+        addOns: [
+          {
+            id: "fries",
+            name: "Fries",
+            price: 250,
+            kind: "side",
+            placeholderColor: "#e0a441",
+            defaultOn: true,
+          },
+          {
+            id: "cola",
+            name: "Cola",
+            price: 200,
+            kind: "drink",
+            placeholderColor: "#b23b3b",
+          },
+          {
+            id: "extra-cheese",
+            name: "Extra cheese",
+            price: 150,
+            kind: "extra",
+            placeholderColor: "#e8b54a",
+          },
+          {
+            id: "bacon",
+            name: "Bacon",
+            price: 300,
+            kind: "extra",
+            placeholderColor: "#9a4b34",
+          },
+        ],
       },
       {
-        id: "alfredo-pasta",
-        name: "Creamy Chicken Pasta",
-        subtitle: "Cream, parmesan, grilled chicken",
+        id: "crispy-chicken",
+        name: "Crispy Chicken Sandwich",
+        subtitle: "Buttermilk-fried fillet, slaw, spicy mayo",
         description:
-          "Rigatoni tossed in a silky Alfredo sauce with grilled chicken, aged parmesan, cracked pepper, basil, and a touch of chili oil.",
-        price: 1499,
-        category: "Mains",
-        imageUrl: "/images/dishes/alfredo-pasta.jpg",
-        modelUrl: dishModelUrl("alfredo-pasta"),
-        iosModelUrl: dishUsdz("alfredo-pasta"),
-        prepTime: "16 min",
-        pairing: "Sparkling lime soda",
-        highlights: ["Creamy", "Fresh basil", "AR ready"],
-        modelColors: {
-          primary: "#e6b15a",
-          secondary: "#f3d7a2",
-          accent: "#d95f3f",
-        },
-      },
-      {
-        id: "seekh-kebab",
-        name: "Beef Seekh Kebab",
-        subtitle: "Coal-fired skewers, mint chutney",
-        description:
-          "Hand-shaped beef kebabs grilled over coals with warm spices, pickled onions, and a cooling mint chutney.",
-        price: 1590,
-        category: "Grill",
-        imageUrl: "/images/dishes/seekh-kebab.jpg",
-        modelUrl: dishModelUrl("seekh-kebab"),
-        iosModelUrl: dishUsdz("seekh-kebab"),
-        prepTime: "18 min",
+          "A craggy buttermilk-fried chicken fillet with crunchy slaw and spicy mayo on a soft potato bun.",
+        price: 1190,
+        category: "Chicken",
+        modelUrl: dishModelUrl("crispy-chicken"),
+        iosModelUrl: dishUsdz("crispy-chicken"),
+        prepTime: "13 min",
         pairing: "Mint lemonade",
-        highlights: ["Coal fired", "Signature spice", "AR ready"],
+        highlights: ["Buttermilk brined", "Extra crispy", "Spicy option"],
         modelColors: {
-          primary: "#7a3f26",
-          secondary: "#c8874f",
-          accent: "#69a35d",
+          primary: "#c98a3c",
+          secondary: "#7c5a24",
+          accent: "#e0a441",
         },
+        addOns: [
+          {
+            id: "fries",
+            name: "Fries",
+            price: 250,
+            kind: "side",
+            placeholderColor: "#e0a441",
+            defaultOn: true,
+          },
+          {
+            id: "lemonade",
+            name: "Mint lemonade",
+            price: 220,
+            kind: "drink",
+            placeholderColor: "#9bd07a",
+          },
+          {
+            id: "spicy-sauce",
+            name: "Spicy sauce",
+            price: 100,
+            kind: "extra",
+            placeholderColor: "#c0392b",
+          },
+          {
+            id: "coleslaw",
+            name: "Coleslaw",
+            price: 180,
+            kind: "side",
+            placeholderColor: "#cfd8a0",
+          },
+        ],
+      },
+    ],
+    branches: [
+      {
+        id: "f7-markaz",
+        name: "F-7 Markaz",
+        address: "F-7 Markaz",
+        city: "Islamabad",
+        country: "Pakistan",
+        // Flagship — full menu at base price.
+        menu: [
+          { dishId: "beef-burger", available: true },
+          { dishId: "crispy-chicken", available: true },
+        ],
       },
       {
-        id: "malai-boti",
-        name: "Chicken Malai Boti",
-        subtitle: "Cream marinade, charred edges",
-        description:
-          "Tender chicken boti marinated with cream, green chili, ginger, and cardamom, finished with a gentle grill char.",
-        price: 1690,
-        category: "Grill",
-        imageUrl: "/images/dishes/malai-boti.jpg",
-        modelUrl: dishModelUrl("malai-boti"),
-        iosModelUrl: dishUsdz("malai-boti"),
-        prepTime: "20 min",
-        pairing: "Salted lassi",
-        highlights: ["Creamy", "Mild spice", "Table favorite"],
-        modelColors: {
-          primary: "#d7aa6c",
-          secondary: "#f3d9a8",
-          accent: "#7d9a54",
-        },
+        id: "dha-lahore",
+        name: "DHA Phase 5",
+        address: "DHA Phase 5",
+        city: "Lahore",
+        country: "Pakistan",
+        // Premium location — slightly higher pricing.
+        menu: [
+          { dishId: "beef-burger", available: true, price: 1390 },
+          { dishId: "crispy-chicken", available: true, price: 1290 },
+        ],
       },
       {
-        id: "mutton-karahi",
-        name: "Mutton Karahi",
-        subtitle: "Tomato, ginger, green chili",
-        description:
-          "Slow-cooked mutton in a bright tomato masala with julienned ginger, green chili, coriander, and freshly cracked spices.",
-        price: 2490,
-        category: "Mains",
-        imageUrl: "/images/dishes/mutton-karahi.jpg",
-        modelUrl: dishModelUrl("mutton-karahi"),
-        iosModelUrl: dishUsdz("mutton-karahi"),
-        prepTime: "28 min",
-        pairing: "Tandoori naan",
-        highlights: ["Shareable", "Fresh masala", "AR ready"],
-        modelColors: {
-          primary: "#a63f28",
-          secondary: "#de8a43",
-          accent: "#5b8d4c",
-        },
-      },
-      {
-        id: "lahori-fish",
-        name: "Lahori Fried Fish",
-        subtitle: "Crisp spice crust, lemon",
-        description:
-          "Boneless fish fillets with a crisp Lahori spice crust, served with lemon, chaat masala, and tartar chutney.",
-        price: 1890,
-        category: "Starters",
-        imageUrl: "/images/dishes/lahori-fish.jpg",
-        modelUrl: dishModelUrl("lahori-fish"),
-        iosModelUrl: dishUsdz("lahori-fish"),
-        prepTime: "15 min",
-        pairing: "Ginger soda",
-        highlights: ["Crisp", "Light spice", "Share plate"],
-        modelColors: {
-          primary: "#c98935",
-          secondary: "#f0c46b",
-          accent: "#c7d166",
-        },
-      },
-      {
-        id: "burrata-chaat",
-        name: "Burrata Chaat",
-        subtitle: "Tomato chutney, sev, herbs",
-        description:
-          "Creamy burrata with tomato chutney, tamarind, crisp sev, herbs, and a delicate chaat masala finish.",
-        price: 1390,
-        category: "Starters",
-        imageUrl: "/images/dishes/burrata-chaat.jpg",
-        modelUrl: dishModelUrl("burrata-chaat"),
-        iosModelUrl: dishUsdz("burrata-chaat"),
-        prepTime: "10 min",
-        pairing: "Pomegranate spritz",
-        highlights: ["Fresh", "Modern chaat", "Vegetarian"],
-        modelColors: {
-          primary: "#f2e7cf",
-          secondary: "#c94a35",
-          accent: "#6fad65",
-        },
-      },
-      {
-        id: "chocolate-dessert",
-        name: "Dark Chocolate Fondant",
-        subtitle: "Dark chocolate, berries, cream",
-        description:
-          "A dense dark chocolate cake with whipped cream, berry compote, chocolate drizzle, and a crisp cocoa crumb for texture.",
-        price: 899,
-        category: "Desserts",
-        imageUrl: "/images/dishes/chocolate-dessert.jpg",
-        modelUrl: dishModelUrl("chocolate-dessert"),
-        iosModelUrl: dishUsdz("chocolate-dessert"),
-        prepTime: "8 min",
-        pairing: "Single-origin espresso",
-        highlights: ["Rich cocoa", "Berry finish", "Shareable"],
-        modelColors: {
-          primary: "#3a2119",
-          secondary: "#7d3f32",
-          accent: "#d94e6a",
-        },
-      },
-      {
-        id: "saffron-kheer",
-        name: "Saffron Kheer",
-        subtitle: "Pistachio, rose, cardamom",
-        description:
-          "Slow-cooked rice pudding scented with saffron and cardamom, finished with pistachio, rose petals, and silver leaf.",
-        price: 790,
-        category: "Desserts",
-        imageUrl: "/images/dishes/saffron-kheer.jpg",
-        modelUrl: dishModelUrl("saffron-kheer"),
-        iosModelUrl: dishUsdz("saffron-kheer"),
-        prepTime: "7 min",
-        pairing: "Karak chai",
-        highlights: ["Classic", "Saffron", "Comforting"],
-        modelColors: {
-          primary: "#f0cf84",
-          secondary: "#fff0c8",
-          accent: "#79a05d",
-        },
-      },
-      {
-        id: "mint-lemonade",
-        name: "Mint Lemonade",
-        subtitle: "Fresh mint, lemon, soda",
-        description:
-          "A bright chilled lemonade with fresh mint, lemon juice, light sugar syrup, and sparkling soda.",
-        price: 490,
-        category: "Drinks",
-        imageUrl: "/images/dishes/mint-lemonade.jpg",
-        modelUrl: dishModelUrl("mint-lemonade"),
-        iosModelUrl: dishUsdz("mint-lemonade"),
-        prepTime: "5 min",
-        pairing: "Grilled mains",
-        highlights: ["Refreshing", "Citrus", "Non-alcoholic"],
-        modelColors: {
-          primary: "#b6d36b",
-          secondary: "#e9f3b2",
-          accent: "#6fae5d",
-        },
+        id: "airport-express",
+        name: "Airport Express",
+        address: "Islamabad Int'l Airport, Departures",
+        city: "Islamabad",
+        country: "Pakistan",
+        // Express kiosk — burgers only.
+        menu: [
+          { dishId: "beef-burger", available: true, price: 1490 },
+          { dishId: "crispy-chicken", available: false },
+        ],
       },
     ],
   },
@@ -262,6 +198,41 @@ export function getRestaurantBranch(slug: string, branchId?: string) {
     restaurant.branches[0] ??
     null
   );
+}
+
+/**
+ * Resolves the dishes a branch actually serves, in menu order, with per-branch
+ * price overrides applied. Falls back to the full base menu when no branch is
+ * given (e.g. a brand-level link with no location).
+ */
+export function getBranchMenu(
+  slug: string,
+  branch: RestaurantBranch | null,
+): MenuDish[] {
+  const restaurant = getRestaurantBySlug(slug);
+
+  if (!restaurant) {
+    return [];
+  }
+
+  if (!branch) {
+    return restaurant.dishes.map((dish) => ({ ...dish }));
+  }
+
+  const dishesById = new Map(restaurant.dishes.map((dish) => [dish.id, dish]));
+
+  return branch.menu
+    .filter((item) => item.available)
+    .map((item) => {
+      const dish = dishesById.get(item.dishId);
+
+      if (!dish) {
+        return null;
+      }
+
+      return { ...dish, price: item.price ?? dish.price };
+    })
+    .filter((dish): dish is MenuDish => dish !== null);
 }
 
 export function getDishById(restaurantSlug: string, dishId: string) {

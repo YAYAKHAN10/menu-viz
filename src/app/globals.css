@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f3ec;
-  --foreground: #201b16;
+  /* The app surface is black (or the live camera) — see DESIGN.md "Monochrome
+     + Living Accent". No warm neutral anywhere; the old cream value was an
+     anti-reference token waiting to leak into any new surface. */
+  --background: #000000;
+  --foreground: #ffffff;
 }
 
 @theme inline {
@@ -24,201 +27,10 @@ input {
   -webkit-tap-highlight-color: transparent;
 }
 
-.menu-scroll {
+.no-scrollbar {
   scrollbar-width: none;
-  scroll-snap-type: y proximity;
-  overscroll-behavior: contain;
 }
 
-.menu-scroll::-webkit-scrollbar {
+.no-scrollbar::-webkit-scrollbar {
   display: none;
-}
-
-.menu-scroll a,
-.menu-scroll [class*="sticky"] {
-  scroll-snap-align: start;
-}
-
-.menu-plate {
-  --food-primary: #e6b15a;
-  --food-secondary: #f3d7a2;
-  --food-accent: #d95f3f;
-  position: relative;
-  width: 9.5rem;
-  height: 9.5rem;
-  border-radius: 999px;
-  background: radial-gradient(
-    circle at 50% 45%,
-    #fff8ec 0 42%,
-    #e7d3b8 43% 61%,
-    #f8efe1 62% 100%
-  );
-  box-shadow:
-    0 22px 36px rgb(0 0 0 / 0.25),
-    inset 0 -16px 24px rgb(82 57 38 / 0.16),
-    inset 0 12px 20px rgb(255 255 255 / 0.72);
-  transform-style: preserve-3d;
-}
-
-.menu-plate::before {
-  content: "";
-  position: absolute;
-  inset: 25% 20% 23%;
-  border-radius: 48% 52% 44% 56%;
-  background:
-    radial-gradient(
-      circle at 28% 35%,
-      var(--food-secondary) 0 12%,
-      transparent 13%
-    ),
-    radial-gradient(
-      circle at 66% 36%,
-      var(--food-accent) 0 11%,
-      transparent 12%
-    ),
-    radial-gradient(
-      circle at 44% 62%,
-      var(--food-accent) 0 9%,
-      transparent 10%
-    ),
-    linear-gradient(135deg, var(--food-primary), var(--food-secondary));
-  box-shadow:
-    inset 0 -12px 20px rgb(0 0 0 / 0.12),
-    0 12px 18px rgb(0 0 0 / 0.12);
-  transform: translateZ(24px);
-}
-
-.menu-plate::after {
-  content: "";
-  position: absolute;
-  left: 28%;
-  top: 28%;
-  width: 18%;
-  height: 18%;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--food-accent) 82%, white);
-  box-shadow:
-    2.8rem 0.45rem 0 -0.15rem var(--food-accent),
-    1.55rem 2.25rem 0 -0.22rem
-      color-mix(in srgb, var(--food-primary) 78%, black);
-  transform: translateZ(38px);
-}
-
-.menu-plate span {
-  position: absolute;
-  display: block;
-  border-radius: 999px;
-  transform: translateZ(44px);
-}
-
-.menu-plate span:nth-child(1) {
-  left: 32%;
-  top: 22%;
-  width: 34%;
-  height: 11%;
-  background: color-mix(in srgb, var(--food-accent) 76%, white);
-  rotate: -16deg;
-}
-
-.menu-plate span:nth-child(2) {
-  left: 24%;
-  top: 51%;
-  width: 48%;
-  height: 10%;
-  background: color-mix(in srgb, var(--food-secondary) 70%, white);
-  rotate: 18deg;
-}
-
-.menu-plate span:nth-child(3) {
-  left: 55%;
-  top: 42%;
-  width: 23%;
-  height: 9%;
-  background: color-mix(in srgb, var(--food-primary) 76%, black);
-  rotate: 52deg;
-}
-
-.menu-plate-large {
-  width: 13rem;
-  height: 13rem;
-}
-
-.menu-plate-viewer {
-  width: min(60vw, 20rem);
-  height: min(60vw, 20rem);
-  transition: transform 180ms ease;
-}
-
-.menu-plate-ar {
-  width: 16rem;
-  height: 16rem;
-  transition: transform 180ms ease;
-  animation: table-breathe 3.8s ease-in-out infinite;
-}
-
-.menu-plate-ar-dish {
-  width: clamp(12rem, 52vw, 20rem);
-  height: clamp(12rem, 52vw, 20rem);
-  transition: transform 80ms linear;
-  animation: table-breathe 3.8s ease-in-out infinite;
-}
-
-.menu-plate-category {
-  --food-rotation: -18deg;
-  width: clamp(12.5rem, 54vw, 18rem);
-  height: clamp(12.5rem, 54vw, 18rem);
-  transform: rotateX(58deg) rotateZ(var(--food-rotation));
-  transition: transform 80ms linear;
-  animation: table-breathe 3.8s ease-in-out infinite;
-}
-
-.menu-model {
-  position: relative;
-  filter: drop-shadow(0 34px 22px rgb(0 0 0 / 0.28));
-  overflow: visible;
-}
-
-.menu-model model-viewer {
-  display: block;
-  width: 100%;
-  height: 100%;
-  background: transparent;
-  --poster-color: transparent;
-}
-
-.menu-model-category {
-  --model-accent: rgb(255 255 255 / 0.55);
-  width: clamp(13.5rem, 58vw, 19rem);
-  height: clamp(13.5rem, 58vw, 19rem);
-  border-radius: 999px;
-  background:
-    radial-gradient(circle at 50% 58%, rgb(0 0 0 / 0.2), transparent 42%),
-    radial-gradient(
-      circle at 50% 50%,
-      color-mix(in srgb, var(--model-accent) 20%, transparent),
-      transparent 62%
-    );
-}
-
-@keyframes table-breathe {
-  0%,
-  100% {
-    filter: drop-shadow(0 34px 22px rgb(0 0 0 / 0.24));
-  }
-
-  50% {
-    filter: drop-shadow(0 42px 28px rgb(0 0 0 / 0.3));
-  }
-}
-
-@media (max-width: 640px) {
-  .menu-plate-large {
-    width: 10rem;
-    height: 10rem;
-  }
-
-  .menu-plate-ar {
-    width: 12rem;
-    height: 12rem;
-  }
 }
