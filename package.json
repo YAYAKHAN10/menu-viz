@@ -49,6 +49,7 @@
     "eslint-config-next": "16.2.9",
     "prettier": "^3.4.2",
     "prettier-plugin-tailwindcss": "^0.6.11",
+    "react-grab": "^0.1.47",
     "tailwindcss": "^4",
     "typescript": "^5",
     "wrangler": "^4.86.0"
