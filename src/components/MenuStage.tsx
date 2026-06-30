@@ -360,7 +360,7 @@ export default function MenuStage({
             type="button"
             onClick={() => moveItem(-1)}
             aria-label="Previous dish"
-            className="absolute top-1/2 -left-2 z-20 flex h-14 w-12 -translate-y-1/2 items-center justify-start text-bone/80 transition outline-none focus-visible:ring-2 focus-visible:ring-bone/50 active:text-bone motion-safe:active:scale-90"
+            className="text-bone/80 focus-visible:ring-bone/50 active:text-bone absolute top-1/2 -left-2 z-20 flex h-14 w-12 -translate-y-1/2 items-center justify-start transition outline-none focus-visible:ring-2 motion-safe:active:scale-90"
           >
             <ChevronLeft className="h-8 w-8 drop-shadow-[0_1px_6px_rgba(0,0,0,0.75)]" />
           </button>
@@ -396,7 +396,7 @@ export default function MenuStage({
             type="button"
             onClick={() => moveItem(1)}
             aria-label="Next dish"
-            className="absolute top-1/2 -right-2 z-20 flex h-14 w-12 -translate-y-1/2 items-center justify-end text-bone/80 transition outline-none focus-visible:ring-2 focus-visible:ring-bone/50 active:text-bone motion-safe:active:scale-90"
+            className="text-bone/80 focus-visible:ring-bone/50 active:text-bone absolute top-1/2 -right-2 z-20 flex h-14 w-12 -translate-y-1/2 items-center justify-end transition outline-none focus-visible:ring-2 motion-safe:active:scale-90"
           >
             <ChevronRight className="h-8 w-8 drop-shadow-[0_1px_6px_rgba(0,0,0,0.75)]" />
           </button>
@@ -420,8 +420,8 @@ export default function MenuStage({
                 <span
                   className={`h-1 rounded-full transition-[width,background-color] duration-300 ease-[var(--ease-out-quint)] ${
                     isActive
-                      ? "w-7 bg-bone"
-                      : "w-3 bg-bone/25 group-active:bg-bone/40"
+                      ? "bg-bone w-7"
+                      : "bg-bone/25 group-active:bg-bone/40 w-3"
                   }`}
                 />
               </button>
@@ -434,12 +434,12 @@ export default function MenuStage({
           morphs open when "Customise" is tapped (shared view-transition). */}
       <div
         style={{ viewTransitionName: "dish-card" } as CSSProperties}
-        className="mx-auto mt-3 w-full max-w-md shrink-0 rounded-3xl border border-bone/[0.08] bg-char/80 px-5 py-4 text-bone shadow-[0_24px_48px_-16px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl"
+        className="border-bone/[0.08] bg-char/80 text-bone mx-auto mt-3 w-full max-w-md shrink-0 rounded-3xl border px-5 py-4 shadow-[0_24px_48px_-16px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl"
       >
         {/* Title block — eyebrow + name (full width), then a price row that
             carries the customise control (matched visual weight). */}
         <div key={dish.id} className="animate-dish-meta">
-          <p className="font-geist text-[0.62rem] font-medium tracking-[0.2em] text-fog uppercase">
+          <p className="font-geist text-fog text-[0.62rem] font-medium tracking-[0.2em] uppercase">
             {dish.category}
           </p>
           <h1 className="mt-1.5 text-[1.7rem] leading-[1.05] font-normal tracking-[-0.02em] text-balance">
@@ -454,9 +454,9 @@ export default function MenuStage({
                 type="button"
                 onClick={toggleCustomizing}
                 aria-expanded={customizing}
-                className={`relative flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[0.72rem] leading-none font-medium transition outline-none before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-[''] focus-visible:ring-2 focus-visible:ring-bone/50 motion-safe:active:scale-[0.96] ${
+                className={`focus-visible:ring-bone/50 relative flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[0.72rem] leading-none font-medium transition outline-none before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-[''] focus-visible:ring-2 motion-safe:active:scale-[0.96] ${
                   customizing
-                    ? "border-transparent bg-paper text-void"
+                    ? "bg-paper text-void border-transparent"
                     : "border-bone/10 bg-char/70 text-mist active:bg-iron/60"
                 }`}
               >
@@ -486,7 +486,7 @@ export default function MenuStage({
                 variantSelection[group.id] ?? defaultVariantOptionId(group);
               return (
                 <div key={group.id}>
-                  <p className="mb-1.5 font-geist text-[0.6rem] font-medium tracking-[0.18em] text-fog uppercase">
+                  <p className="font-geist text-fog mb-1.5 text-[0.6rem] font-medium tracking-[0.18em] uppercase">
                     {group.name}
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -498,17 +498,15 @@ export default function MenuStage({
                           type="button"
                           onClick={() => selectVariant(group, option)}
                           aria-pressed={on}
-                          className={`rounded-full border px-3.5 py-2 text-[0.8rem] font-medium transition outline-none focus-visible:ring-2 focus-visible:ring-bone/50 motion-safe:active:scale-[0.96] ${
+                          className={`focus-visible:ring-bone/50 rounded-full border px-3.5 py-2 text-[0.8rem] font-medium transition outline-none focus-visible:ring-2 motion-safe:active:scale-[0.96] ${
                             on
-                              ? "border-transparent bg-paper text-void"
+                              ? "bg-paper text-void border-transparent"
                               : "border-bone/10 bg-char/70 text-mist active:bg-iron/60"
                           }`}
                         >
                           {option.name}
                           {option.price ? (
-                            <span
-                              className={on ? "text-void/55" : "text-fog"}
-                            >
+                            <span className={on ? "text-void/55" : "text-fog"}>
                               {" "}
                               +{restaurant.currency} {option.price}
                             </span>
@@ -525,7 +523,7 @@ export default function MenuStage({
             {addOns.length > 0 && (
               <div>
                 {variantGroups.length > 0 && (
-                  <p className="mb-1.5 font-geist text-[0.6rem] font-medium tracking-[0.18em] text-fog uppercase">
+                  <p className="font-geist text-fog mb-1.5 text-[0.6rem] font-medium tracking-[0.18em] uppercase">
                     Extras
                   </p>
                 )}
@@ -538,9 +536,9 @@ export default function MenuStage({
                         type="button"
                         onClick={() => toggleAddOn(addOn)}
                         aria-pressed={on}
-                        className={`rounded-full border px-3.5 py-2 text-[0.8rem] font-medium transition outline-none focus-visible:ring-2 focus-visible:ring-bone/50 ${
+                        className={`focus-visible:ring-bone/50 rounded-full border px-3.5 py-2 text-[0.8rem] font-medium transition outline-none focus-visible:ring-2 ${
                           on
-                            ? "border-transparent bg-paper text-void"
+                            ? "bg-paper text-void border-transparent"
                             : "border-bone/10 bg-char/70 text-mist active:bg-iron/60"
                         }`}
                       >
@@ -566,7 +564,7 @@ export default function MenuStage({
                 type="button"
                 onClick={startAr}
                 disabled={!arReady}
-                className="flex flex-1 items-center justify-center gap-2 rounded-full bg-paper px-4 py-3 text-sm font-medium text-void transition outline-none focus-visible:ring-2 focus-visible:ring-bone/60 active:bg-bone disabled:opacity-40 motion-safe:active:scale-[0.96]"
+                className="bg-paper text-void focus-visible:ring-bone/60 active:bg-bone flex flex-1 items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-medium transition outline-none focus-visible:ring-2 disabled:opacity-40 motion-safe:active:scale-[0.96]"
               >
                 <Cube className="h-[1.1rem] w-[1.1rem]" />
                 View on my table
@@ -575,7 +573,7 @@ export default function MenuStage({
                 type="button"
                 onClick={openCapture}
                 aria-label="Share a photo"
-                className="flex items-center justify-center gap-2 rounded-full border border-bone/10 bg-char/70 px-4 py-3 text-sm font-medium text-bone transition outline-none focus-visible:ring-2 focus-visible:ring-bone/50 active:bg-iron/60 motion-safe:active:scale-[0.96]"
+                className="border-bone/10 bg-char/70 text-bone focus-visible:ring-bone/50 active:bg-iron/60 flex items-center justify-center gap-2 rounded-full border px-4 py-3 text-sm font-medium transition outline-none focus-visible:ring-2 motion-safe:active:scale-[0.96]"
               >
                 <Share className="h-[1.1rem] w-[1.1rem]" />
                 Share
@@ -585,7 +583,7 @@ export default function MenuStage({
             <button
               type="button"
               onClick={openCapture}
-              className="flex flex-1 items-center justify-center gap-2 rounded-full bg-paper px-4 py-3 text-sm font-medium text-void transition outline-none focus-visible:ring-2 focus-visible:ring-bone/60 active:bg-bone motion-safe:active:scale-[0.96]"
+              className="bg-paper text-void focus-visible:ring-bone/60 active:bg-bone flex flex-1 items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-medium transition outline-none focus-visible:ring-2 motion-safe:active:scale-[0.96]"
             >
               <Share className="h-[1.1rem] w-[1.1rem]" />
               Share a photo
@@ -604,11 +602,11 @@ export default function MenuStage({
             viewTransitionName: menuOpen ? "none" : "menu-morph",
           } as CSSProperties
         }
-        className={`mx-auto mt-2.5 flex shrink-0 items-center gap-2 rounded-full border border-bone/10 bg-char/70 px-4 py-2.5 text-[0.8rem] font-medium text-mist shadow-[0_8px_28px_rgba(0,0,0,0.4)] backdrop-blur-md transition-opacity duration-200 outline-none focus-visible:ring-2 focus-visible:ring-bone/50 active:bg-iron/60 motion-safe:active:scale-[0.96] ${
+        className={`border-bone/10 bg-char/70 text-mist focus-visible:ring-bone/50 active:bg-iron/60 mx-auto mt-2.5 flex shrink-0 items-center gap-2 rounded-full border px-4 py-2.5 text-[0.8rem] font-medium shadow-[0_8px_28px_rgba(0,0,0,0.4)] backdrop-blur-md transition-opacity duration-200 outline-none focus-visible:ring-2 motion-safe:active:scale-[0.96] ${
           menuOpen ? "pointer-events-none opacity-0" : "opacity-100"
         }`}
       >
-        <Menu className="h-4 w-4 text-ash" />
+        <Menu className="text-ash h-4 w-4" />
         Full menu
       </button>
 

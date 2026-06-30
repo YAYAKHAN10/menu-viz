@@ -30,8 +30,8 @@ What exists today:
   saturated colour.
 - A **bottom-sheet "Full menu"** (`MenuDrawer`): a scannable editorial list with a
   sticky **scroll-spy category bar** (a sliding active pill), bold section headers
-  + counts, and rich rows (monochrome thumbnail well, name, descriptor, highlight
-  tag, price). It opens from a "Full menu" pill that **morphs into the sheet**.
+  - counts, and rich rows (monochrome thumbnail well, name, descriptor, highlight
+    tag, price). It opens from a "Full menu" pill that **morphs into the sheet**.
 - **Container morphs** everywhere via the **View Transitions API**
   (`lib/viewTransition.ts` + scoped CSS in `globals.css`): the menu pill ↔ sheet,
   the dish **card ↔ its customise options**, and a **cinematic directional slide**

@@ -80,7 +80,9 @@ export default function MenuDrawer({
             visible.delete(category);
           }
         }
-        const topmost = sections.find((section) => visible.has(section.category));
+        const topmost = sections.find((section) =>
+          visible.has(section.category),
+        );
         if (topmost) {
           setActiveCategory(topmost.category);
         }
@@ -218,7 +220,7 @@ export default function MenuDrawer({
               : {}),
           } as CSSProperties
         }
-        className={`absolute inset-x-4 bottom-4 z-40 mx-auto flex max-h-[84dvh] max-w-md flex-col overflow-hidden rounded-[1.75rem] border border-bone/10 bg-[#0c0d10]/95 text-bone shadow-[0_24px_60px_-12px_rgba(0,0,0,0.7)] backdrop-blur-xl transition-opacity duration-200 motion-reduce:transition-none ${
+        className={`border-bone/10 text-bone absolute inset-x-4 bottom-4 z-40 mx-auto flex max-h-[84dvh] max-w-md flex-col overflow-hidden rounded-[1.75rem] border bg-[#0c0d10]/95 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.7)] backdrop-blur-xl transition-opacity duration-200 motion-reduce:transition-none ${
           open ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
@@ -231,7 +233,7 @@ export default function MenuDrawer({
           className="shrink-0 touch-none"
         >
           <div className="flex justify-center pt-3 pb-1.5">
-            <span className="h-1 w-10 rounded-full bg-bone/30" />
+            <span className="bg-bone/30 h-1 w-10 rounded-full" />
           </div>
           <header className="px-5 pb-2.5">
             <p className="text-xl font-normal tracking-[-0.01em]">
@@ -242,13 +244,13 @@ export default function MenuDrawer({
 
         {/* Category nav — scroll-spy + tap to jump. */}
         {sections.length > 1 && (
-          <div className="no-scrollbar shrink-0 overflow-x-auto border-b border-bone/[0.06]">
+          <div className="no-scrollbar border-bone/[0.06] shrink-0 overflow-x-auto border-b">
             <div className="relative flex w-max gap-1.5 px-4 pt-1 pb-2.5">
               {/* The sliding active pill — JS writes its box, CSS tweens it. */}
               <span
                 ref={pillRef}
                 aria-hidden
-                className="pointer-events-none absolute top-0 left-0 w-0 rounded-full bg-paper transition-[transform,width] duration-[250ms] ease-[var(--ease-out-quint)] motion-reduce:transition-none"
+                className="bg-paper pointer-events-none absolute top-0 left-0 w-0 rounded-full transition-[transform,width] duration-[250ms] ease-[var(--ease-out-quint)] motion-reduce:transition-none"
               />
               {sections.map((section) => {
                 const on = section.category === activeCategory;
@@ -264,7 +266,7 @@ export default function MenuDrawer({
                     }}
                     type="button"
                     onClick={() => jumpToCategory(section.category)}
-                    className={`relative z-10 flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 font-geist text-[0.7rem] font-medium tracking-[0.06em] uppercase transition-colors duration-[250ms] outline-none before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-[''] focus-visible:ring-2 focus-visible:ring-bone/50 motion-safe:active:scale-[0.96] ${
+                    className={`font-geist focus-visible:ring-bone/50 relative z-10 flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[0.7rem] font-medium tracking-[0.06em] uppercase transition-colors duration-[250ms] outline-none before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-[''] focus-visible:ring-2 motion-safe:active:scale-[0.96] ${
                       on ? "text-void" : "text-mist"
                     }`}
                   >
@@ -286,7 +288,7 @@ export default function MenuDrawer({
           className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(1.25rem,env(safe-area-inset-bottom))]"
         >
           {sections.length === 0 ? (
-            <p className="px-5 py-10 text-center text-sm text-fog">
+            <p className="text-fog px-5 py-10 text-center text-sm">
               This menu is coming online shortly.
             </p>
           ) : (
@@ -304,15 +306,15 @@ export default function MenuDrawer({
                 className="scroll-mt-2"
               >
                 <div className="flex items-baseline gap-2 px-5 pt-5 pb-2">
-                  <h2 className="text-lg font-medium tracking-[-0.01em] text-bone">
+                  <h2 className="text-bone text-lg font-medium tracking-[-0.01em]">
                     {section.category}
                   </h2>
-                  <span className="font-geist text-xs text-fog">
+                  <span className="font-geist text-fog text-xs">
                     {section.dishes.length}{" "}
                     {section.dishes.length === 1 ? "item" : "items"}
                   </span>
                 </div>
-                <div className="divide-y divide-bone/[0.06]">
+                <div className="divide-bone/[0.06] divide-y">
                   {section.dishes.map((dish) => (
                     <MenuRow
                       key={dish.id}
@@ -359,14 +361,16 @@ function MenuRow({
       onClick={onSelect}
       aria-current={active}
       style={{ "--i": index } as CSSProperties}
-      className={`flex w-full items-start gap-3.5 px-5 py-3.5 text-left transition outline-none focus-visible:ring-2 focus-visible:ring-bone/50 focus-visible:ring-inset ${
+      className={`focus-visible:ring-bone/50 flex w-full items-start gap-3.5 px-5 py-3.5 text-left transition outline-none focus-visible:ring-2 focus-visible:ring-inset ${
         active ? "bg-bone/[0.06]" : "active:bg-bone/[0.04]"
       } ${reveal ? "row-reveal" : ""}`}
     >
       <span
-        className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-bone/[0.06] bg-ink"
+        className="border-bone/[0.06] bg-ink flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border"
         style={
-          active ? { boxShadow: "0 0 0 1.5px rgba(229,229,229,0.5)" } : undefined
+          active
+            ? { boxShadow: "0 0 0 1.5px rgba(229,229,229,0.5)" }
+            : undefined
         }
       >
         {dish.imageUrl ? (
@@ -377,7 +381,7 @@ function MenuRow({
             className="h-full w-full object-cover"
           />
         ) : (
-          <span className="font-geist text-lg font-medium text-mist">
+          <span className="font-geist text-mist text-lg font-medium">
             {dish.name.charAt(0)}
           </span>
         )}
@@ -385,18 +389,18 @@ function MenuRow({
 
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="flex items-baseline justify-between gap-3">
-          <span className="min-w-0 truncate text-[0.95rem] font-medium text-bone">
+          <span className="text-bone min-w-0 truncate text-[0.95rem] font-medium">
             {dish.name}
           </span>
-          <span className="shrink-0 font-geist text-sm font-medium text-mist tabular-nums">
+          <span className="font-geist text-mist shrink-0 text-sm font-medium tabular-nums">
             {currency} {dish.price}
           </span>
         </span>
-        <span className="mt-0.5 line-clamp-2 text-xs leading-snug text-pretty text-mist">
+        <span className="text-mist mt-0.5 line-clamp-2 text-xs leading-snug text-pretty">
           {dish.subtitle}
         </span>
         {tag && (
-          <span className="mt-1.5 self-start rounded-full border border-bone/10 bg-char/60 px-2 py-0.5 font-geist text-[0.6rem] font-medium tracking-[0.04em] text-mist">
+          <span className="border-bone/10 bg-char/60 font-geist text-mist mt-1.5 self-start rounded-full border px-2 py-0.5 text-[0.6rem] font-medium tracking-[0.04em]">
             {tag}
           </span>
         )}

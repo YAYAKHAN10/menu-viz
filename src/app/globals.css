@@ -76,16 +76,16 @@ input {
     ),
     /* horizon: deep green-black top → warm amber → cream base */
     linear-gradient(
-      to bottom,
-      #111c14 0%,
-      #131d16 20%,
-      #21211a 34%,
-      #4a3b25 48%,
-      #876741 60%,
-      #c6a275 72%,
-      #ece3c0 86%,
-      #fafae6 100%
-    );
+        to bottom,
+        #111c14 0%,
+        #131d16 20%,
+        #21211a 34%,
+        #4a3b25 48%,
+        #876741 60%,
+        #c6a275 72%,
+        #ece3c0 86%,
+        #fafae6 100%
+      );
 }
 
 /* Fine, desaturated film grain over the backdrop for texture. `screen` so it

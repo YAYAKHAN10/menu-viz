@@ -68,7 +68,7 @@ export default function MenuShell({
   }
 
   return (
-    <main className="min-h-dvh bg-void text-bone">
+    <main className="bg-void text-bone min-h-dvh">
       <section className="relative isolate min-h-dvh overflow-hidden px-4 pt-4 pb-4">
         {/* Grainy framing backdrop — soft glows hug the top & bottom edges and
             the dish floats in the darker middle. The 3D canvas is transparent,
