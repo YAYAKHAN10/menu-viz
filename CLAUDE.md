@@ -222,9 +222,11 @@ Restaurant   { slug, name, cuisine, location, currency, defaultBranchId,
                branches[], dishes[], heroImageUrl, rating, description }
 Dish         { id, name, subtitle, description, price, category,
                modelUrl?, iosModelUrl?, prepTime, pairing, highlights[],
-               modelColors{primary,secondary,accent}, addOns?[] }
+               modelColors{primary,secondary,accent}, variants?[], addOns?[] }
+VariantGroup { id, name, options: VariantOption[], defaultOptionId? }  -- single-select
+VariantOption{ id, name, price?, kind?, modelUrl?, placeholderColor? }
 AddOn        { id, name, price, kind('side'|'drink'|'extra'|'wrap'),
-               modelUrl?, placeholderColor?, defaultOn? }
+               modelUrl?, placeholderColor?, defaultOn? }  -- additive toggle
 RestaurantBranch { id, name, address, city, country, menu: BranchMenuItem[] }
 BranchMenuItem   { dishId, available, price? }          -- the location join
 MenuDish     = Dish & { price }                          -- branch-resolved
@@ -248,7 +250,7 @@ page / [slug] (server)
   └─ getBranchMenu → CameraMenu (camera shell + getBackgroundFrame)
         └─ MenuStage (gestures, state, analytics)
               ├─ DishStage (R3F: base dish + add-on models, capture())   ← dynamic, ssr:false
-              ├─ customiser chips (toggle add-ons → DishStage updates live)
+              ├─ customiser chips (single-select variants + toggle add-ons → DishStage live)
               ├─ "View on my table" → lib/ar.launchAr (Scene Viewer / Quick Look)
               └─ "Share a photo" → DishStage.capture() + getBackgroundFrame()
                        → composeShareImage → DishCapture (Web Share / download)

@@ -37,6 +37,7 @@ export type MenuAnalyticsEvent =
   | "model_load_retry"
   | "model_preload_failed"
   | "addon_toggled"
+  | "variant_selected"
   | "capture_open"
   | "capture_taken"
   | "capture_failed"

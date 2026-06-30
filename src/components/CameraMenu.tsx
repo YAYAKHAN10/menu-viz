@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MenuStage from "@/components/MenuStage";
 import { trackMenuEvent } from "@/lib/analytics";
@@ -182,18 +181,16 @@ export default function CameraMenu({
           }`}
         />
 
-        <Image
-          src={restaurant.heroImageUrl}
-          alt={`${restaurant.name} dining room`}
-          fill
-          priority
-          className={`object-cover transition-opacity duration-500 ${
+        {/* Clean dark stage behind the dish until the camera is live — no
+            distracting hero wallpaper. The dish reads as a product viewer over
+            black, then the real table fades in. */}
+        <div
+          className={`absolute inset-0 bg-[radial-gradient(120%_90%_at_50%_18%,#1b1b1b_0%,#0a0a0a_55%,#000_100%)] transition-opacity duration-500 ${
             cameraState === "live" ? "opacity-0" : "opacity-100"
           }`}
-          sizes="100vw"
         />
 
-        <div className="absolute inset-0 bg-gradient-to-b from-black/58 via-black/14 to-black/76" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/70" />
 
         <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col">
           <nav className="flex items-center justify-between py-1">

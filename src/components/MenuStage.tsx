@@ -17,6 +17,8 @@ import type {
   MenuDish,
   RestaurantBranch,
   RestaurantMeta,
+  VariantGroup,
+  VariantOption,
 } from "@/types/restaurant";
 
 const DishStage = dynamic(() => import("@/components/DishStage"), {
@@ -54,6 +56,10 @@ export default function MenuStage({
   const [selectionByDish, setSelectionByDish] = useState<
     Record<string, string[]>
   >({});
+  // Per-dish, per-group chosen variant option id (dishId → groupId → optionId).
+  const [variantByDish, setVariantByDish] = useState<
+    Record<string, Record<string, string>>
+  >({});
   const [customizing, setCustomizing] = useState(false);
   const [captureOpen, setCaptureOpen] = useState(false);
   const [captureStatus, setCaptureStatus] = useState<
@@ -64,6 +70,12 @@ export default function MenuStage({
   );
 
   const captureFnRef = useRef<(() => string | null) | null>(null);
+  const categorySwipeRef = useRef({
+    active: false,
+    startX: 0,
+    startY: 0,
+    swiped: false,
+  });
   const rotateRef = useRef({
     active: false,
     startX: 0,
@@ -97,13 +109,28 @@ export default function MenuStage({
     return null;
   }
 
+  const variantGroups = dish.variants ?? [];
   const addOns = dish.addOns ?? [];
+  const variantSelection = variantByDish[dish.id] ?? {};
   const selectedIds = selectionByDish[dish.id] ?? defaultAddOnIds(dish);
-  const selectedAddOns = addOns.filter((addOn) =>
+
+  // The chosen option from each variant group (one per group, always present).
+  const selectedVariantOptions = variantGroups
+    .map((group) => selectedVariantOption(group, variantSelection[group.id]))
+    .filter((option): option is VariantOption => option !== null);
+  const toggledAddOns = addOns.filter((addOn) =>
     selectedIds.includes(addOn.id),
   );
+
+  // The tray list driving both the live preview and (future combo-baked) AR:
+  // each chosen variant option, then the additive add-ons.
+  const trayAddOns: AddOn[] = [
+    ...selectedVariantOptions.map(variantOptionToAddOn),
+    ...toggledAddOns,
+  ];
+  const customizable = variantGroups.length > 0 || addOns.length > 0;
   const totalPrice =
-    dish.price + selectedAddOns.reduce((sum, addOn) => sum + addOn.price, 0);
+    dish.price + trayAddOns.reduce((sum, item) => sum + item.price, 0);
 
   const arCapable = isClient && detectArCapability() !== "none";
   const arReady = isClient && canLaunchAr(dish);
@@ -143,6 +170,47 @@ export default function MenuStage({
     setCustomizing(false);
   }
 
+  function stepCategory(direction: 1 | -1) {
+    const length = sections.length;
+    selectCategory((categoryIndex + direction + length) % length);
+  }
+
+  // Swipe the centered category strip left/right to change category. Plain
+  // taps fall through to each label's onClick (no pointer capture here).
+  function onCategoryDown(event: PointerEvent<HTMLDivElement>) {
+    categorySwipeRef.current = {
+      active: true,
+      startX: event.clientX,
+      startY: event.clientY,
+      swiped: false,
+    };
+  }
+
+  function onCategoryUp(event: PointerEvent<HTMLDivElement>) {
+    if (!categorySwipeRef.current.active || sections.length <= 1) {
+      categorySwipeRef.current.active = false;
+      return;
+    }
+
+    const deltaX = event.clientX - categorySwipeRef.current.startX;
+    const deltaY = event.clientY - categorySwipeRef.current.startY;
+    categorySwipeRef.current.active = false;
+
+    if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY)) {
+      // Mark the gesture so the button's trailing click doesn't override it.
+      categorySwipeRef.current.swiped = true;
+      stepCategory(deltaX < 0 ? 1 : -1);
+    }
+  }
+
+  function onCategoryClick(index: number) {
+    if (categorySwipeRef.current.swiped) {
+      categorySwipeRef.current.swiped = false;
+      return;
+    }
+    selectCategory(index);
+  }
+
   function toggleAddOn(addOn: AddOn) {
     setSelectionByDish((previous) => {
       const current = previous[dish.id] ?? defaultAddOnIds(dish);
@@ -157,9 +225,20 @@ export default function MenuStage({
     });
   }
 
+  function selectVariant(group: VariantGroup, option: VariantOption) {
+    setVariantByDish((previous) => ({
+      ...previous,
+      [dish.id]: { ...previous[dish.id], [group.id]: option.id },
+    }));
+    trackMenuEvent("variant_selected", {
+      ...dishContext,
+      reason: `${group.id}:${option.id}`,
+    });
+  }
+
   function startAr() {
     trackMenuEvent("ar_launched", dishContext);
-    const ok = launchAr(dish, selectedAddOns);
+    const ok = launchAr(dish, trayAddOns);
 
     if (!ok) {
       void openCapture();
@@ -271,25 +350,32 @@ export default function MenuStage({
       return;
     }
 
-    if (wasTap && addOns.length > 0) {
+    if (wasTap && customizable) {
       setCustomizing((open) => !open);
     }
   }
 
   return (
     <div className="absolute inset-0 z-10 flex flex-col px-4 pt-16 pb-6 select-none">
-      {/* Category strip */}
+      {/* Category strip — centered + swipeable */}
       {sections.length > 1 && (
-        <div className="no-scrollbar flex shrink-0 items-center gap-2 overflow-x-auto pb-1">
+        <div
+          className="flex shrink-0 touch-pan-y items-center justify-center gap-1.5"
+          onPointerDown={onCategoryDown}
+          onPointerUp={onCategoryUp}
+          onPointerCancel={() => {
+            categorySwipeRef.current.active = false;
+          }}
+        >
           {sections.map((item, index) => (
             <button
               key={item.category}
               type="button"
-              onClick={() => selectCategory(index)}
-              className={`shrink-0 rounded-full border px-4 py-2 text-xs font-semibold tracking-[0.14em] uppercase transition outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${
+              onClick={() => onCategoryClick(index)}
+              className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.16em] uppercase transition outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${
                 index === categoryIndex
-                  ? "border-white/30 bg-white/90 text-black"
-                  : "border-white/16 bg-black/24 text-white/72 backdrop-blur-md active:bg-white/12"
+                  ? "bg-white text-black"
+                  : "text-white/45 active:text-white/70"
               }`}
             >
               {item.category}
@@ -302,7 +388,7 @@ export default function MenuStage({
       <div className="relative min-h-0 flex-1">
         <DishStage
           dish={dish}
-          selectedAddOns={selectedAddOns}
+          selectedAddOns={trayAddOns}
           rotation={rotation}
           registerCapture={(fn) => {
             captureFnRef.current = fn;
@@ -341,98 +427,122 @@ export default function MenuStage({
           </div>
         )}
 
-        {addOns.length > 0 && (
+        {customizable && (
           <p className="pointer-events-none absolute inset-x-0 bottom-1 z-20 mx-auto w-fit rounded-full border border-white/14 bg-black/24 px-4 py-2 text-center text-xs font-semibold tracking-[0.14em] text-white/64 uppercase backdrop-blur-md">
             {customizing ? "Drag to rotate" : "Tap dish to customize"}
           </p>
         )}
       </div>
 
-      {/* Info + customize + actions */}
-      <div className="mt-3 w-full shrink-0 rounded-[1.75rem] border border-white/18 bg-black/30 p-4 text-white shadow-2xl shadow-black/40 backdrop-blur-xl">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[0.65rem] font-semibold tracking-[0.22em] text-white/52 uppercase">
-              {section.category}
-            </p>
-            <h1 className="mt-1 truncate text-2xl font-semibold">
-              {dish.name}
-            </h1>
-            <p className="mt-1 line-clamp-2 text-sm leading-5 text-white/64">
-              {dish.subtitle}
-            </p>
-          </div>
-          <div className="shrink-0 text-right">
-            <p className="text-[0.6rem] font-semibold tracking-[0.18em] text-white/48 uppercase">
-              {selectedAddOns.length > 0 ? "Total" : "From"}
-            </p>
-            <p className="text-lg font-semibold">
-              {restaurant.currency} {totalPrice}
-            </p>
-          </div>
-        </div>
-
+      {/* Compact info + customize + actions */}
+      <div className="mt-3 w-full shrink-0 rounded-3xl border border-white/14 bg-black/35 px-4 py-3 text-white backdrop-blur-xl">
         {section.dishes.length > 1 && (
-          <div className="mt-3 flex items-center gap-1.5">
+          <div className="mb-2.5 flex justify-center gap-1.5">
             {section.dishes.map((item, index) => (
               <span
                 key={item.id}
                 className={`h-1.5 rounded-full transition-all ${
-                  index === dishIndex ? "w-6 bg-white" : "w-1.5 bg-white/45"
+                  index === dishIndex ? "w-5 bg-white" : "w-1.5 bg-white/40"
                 }`}
               />
             ))}
           </div>
         )}
 
-        {/* Customizer */}
-        {addOns.length > 0 && (
-          <div className="mt-4">
-            <button
-              type="button"
-              onClick={() => setCustomizing((open) => !open)}
-              className="flex w-full items-center justify-between rounded-2xl border border-white/12 bg-white/[0.05] px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-              aria-expanded={customizing}
-            >
-              <span className="text-xs font-semibold tracking-[0.14em] text-white/72 uppercase">
-                Customize
-              </span>
-              <span className="text-xs text-white/52">
-                {selectedAddOns.length} added
-              </span>
-            </button>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="min-w-0 truncate text-lg font-semibold">
+            {dish.name}
+          </h1>
+          <p className="shrink-0 text-base font-semibold tabular-nums">
+            {restaurant.currency} {totalPrice}
+          </p>
+        </div>
 
-            {customizing && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {addOns.map((addOn) => {
-                  const on = selectedIds.includes(addOn.id);
-                  return (
-                    <button
-                      key={addOn.id}
-                      type="button"
-                      onClick={() => toggleAddOn(addOn)}
-                      aria-pressed={on}
-                      className={`rounded-full border px-3 py-2 text-xs font-semibold transition outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${
-                        on
-                          ? "border-white/30 bg-white/90 text-black"
-                          : "border-white/16 bg-white/[0.06] text-white/78 active:bg-white/12"
-                      }`}
-                    >
-                      {addOn.name}
-                      <span className={on ? "text-black/55" : "text-white/45"}>
-                        {" "}
-                        +{restaurant.currency} {addOn.price}
-                      </span>
-                    </button>
-                  );
-                })}
+        {/* Customizer — appears when the dish is tapped */}
+        {customizing && customizable && (
+          <div className="mt-3 space-y-3">
+            {/* Single-select versions (one per group, e.g. choose a side) */}
+            {variantGroups.map((group) => {
+              const chosenId =
+                variantSelection[group.id] ?? defaultVariantOptionId(group);
+              return (
+                <div key={group.id}>
+                  <p className="mb-1.5 text-[0.6rem] font-semibold tracking-[0.18em] text-white/45 uppercase">
+                    {group.name}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {group.options.map((option) => {
+                      const on = option.id === chosenId;
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => selectVariant(group, option)}
+                          aria-pressed={on}
+                          className={`rounded-full border px-3 py-2 text-xs font-semibold transition outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${
+                            on
+                              ? "border-white/30 bg-white/90 text-black"
+                              : "border-white/16 bg-white/[0.06] text-white/78 active:bg-white/12"
+                          }`}
+                        >
+                          {option.name}
+                          {option.price ? (
+                            <span
+                              className={on ? "text-black/55" : "text-white/45"}
+                            >
+                              {" "}
+                              +{restaurant.currency} {option.price}
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Additive extras (toggle on/off) */}
+            {addOns.length > 0 && (
+              <div>
+                {variantGroups.length > 0 && (
+                  <p className="mb-1.5 text-[0.6rem] font-semibold tracking-[0.18em] text-white/45 uppercase">
+                    Extras
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {addOns.map((addOn) => {
+                    const on = selectedIds.includes(addOn.id);
+                    return (
+                      <button
+                        key={addOn.id}
+                        type="button"
+                        onClick={() => toggleAddOn(addOn)}
+                        aria-pressed={on}
+                        className={`rounded-full border px-3 py-2 text-xs font-semibold transition outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${
+                          on
+                            ? "border-white/30 bg-white/90 text-black"
+                            : "border-white/16 bg-white/[0.06] text-white/78 active:bg-white/12"
+                        }`}
+                      >
+                        {addOn.name}
+                        <span
+                          className={on ? "text-black/55" : "text-white/45"}
+                        >
+                          {" "}
+                          +{restaurant.currency} {addOn.price}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
         )}
 
         {/* Actions */}
-        <div className="mt-4 flex items-center gap-2.5">
+        <div className="mt-3 flex items-center gap-2.5">
           {arCapable && (
             <button
               type="button"
@@ -492,6 +602,31 @@ function defaultAddOnIds(dish: MenuDish): string[] {
   return (dish.addOns ?? [])
     .filter((addOn) => addOn.defaultOn)
     .map((addOn) => addOn.id);
+}
+
+function defaultVariantOptionId(group: VariantGroup): string | undefined {
+  return group.defaultOptionId ?? group.options[0]?.id;
+}
+
+/** The chosen option for a group (the selected id, else the group default). */
+function selectedVariantOption(
+  group: VariantGroup,
+  chosenId: string | undefined,
+): VariantOption | null {
+  const id = chosenId ?? defaultVariantOptionId(group);
+  return group.options.find((option) => option.id === id) ?? null;
+}
+
+/** Adapts a variant option to the AddOn shape the tray/preview consumes. */
+function variantOptionToAddOn(option: VariantOption): AddOn {
+  return {
+    id: option.id,
+    name: option.name,
+    price: option.price ?? 0,
+    kind: option.kind ?? "side",
+    modelUrl: option.modelUrl,
+    placeholderColor: option.placeholderColor,
+  };
 }
 
 function findInitialPosition(
