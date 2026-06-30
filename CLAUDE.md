@@ -31,12 +31,19 @@ Two users:
 **Built and working** (verified: typecheck, lint, `next build`, served smoke,
 Cloudflare Worker preview deploy):
 
-- Camera-first **single-screen** diner experience (`MenuStage`): category strip,
-  horizontal swipe between items, drag-to-rotate, tap-to-customise.
+- Camera-first **single-screen** diner experience (`MenuStage`): a **centered,
+  swipeable** category strip, horizontal swipe between items, drag-to-rotate,
+  tap-to-customise, over a **clean dark stage** until the camera is live (no hero
+  wallpaper).
 - **Live 3D preview via react-three-fiber** (`DishStage`) — base dish + toggleable
   add-on models on a tray. (Replaced `<model-viewer>`, which is **removed**.)
-- **Add-on configurator**: each add-on is its own model (primitive placeholder
-  until a real GLB is supplied) with live price roll-up.
+- **Configurator**: **single-select versions** (variant groups, e.g. choose a
+  side) + **additive add-ons**, each its own model (primitive placeholder until a
+  real GLB is supplied), with live price roll-up.
+- **Combo-baking pipeline** (`scripts/bake-combos.ts`): composes base dish +
+  chosen variant into one real-scale GLB for AR; built + verified, wired into
+  `resolveArModel()`. Bakes nothing today (no component GLBs) → AR drops the base
+  dish. See §8 / §16.
 - **AR (browse-and-drop)**: Android **Scene Viewer** via ARCore intent at fixed
   real-world scale; iOS **Quick Look** path wired (off until USDZ exists).
 - **Branded share photo**: composited from the WebGL canvas over the camera frame.
@@ -548,7 +555,9 @@ Secrets never in the client bundle. Asset URLs are public CDN paths.
   `useState` initialisers, or `useSyncExternalStore`.
 - Feature-detect capabilities; UA only to pick Scene Viewer vs Quick Look.
 - All AR logic stays in `lib/ar.ts`; all share-image logic in
-  `lib/composeShareImage.ts`; all tracking-link logic in `lib/links.ts`.
+  `lib/composeShareImage.ts`; all tracking-link logic in `lib/links.ts`; combo
+  identity in `lib/combo.ts` (shared by the baker and `lib/ar.ts` — keep it pure
+  so both compute the same key). Don't hand-edit `lib/combos.generated.ts`.
 - Visual system: monochrome (black/white opacity ramp) + the dish as the only
   saturated colour; load-bearing glass only over the camera. See `DESIGN.md`.
 - Accessibility: best-effort — focus-visible rings on controls, ≥44px touch
