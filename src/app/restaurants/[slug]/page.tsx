@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import CameraMenu from "@/components/CameraMenu";
+import MenuShell from "@/components/MenuShell";
 import {
   getBranchMenu,
   getRestaurantBranch,
@@ -37,7 +37,7 @@ export default async function RestaurantPage({
   const dishes = getBranchMenu(slug, branch);
 
   return (
-    <CameraMenu
+    <MenuShell
       restaurant={toRestaurantMeta(restaurant)}
       branch={branch}
       dishes={dishes}

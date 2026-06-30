@@ -6,12 +6,24 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type CSSProperties,
   type PointerEvent,
 } from "react";
 import DishCapture, { type CaptureResult } from "@/components/DishCapture";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Cube,
+  Menu,
+  Plus,
+  Share,
+} from "@/components/icons";
 import { trackMenuEvent } from "@/lib/analytics";
 import { canLaunchAr, detectArCapability, launchAr } from "@/lib/ar";
 import { composeShareImage } from "@/lib/composeShareImage";
+import { neighbourDishId, resolveActiveDish } from "@/lib/menu";
+import { withViewTransition } from "@/lib/viewTransition";
 import type {
   AddOn,
   MenuDish,
@@ -29,29 +41,37 @@ type MenuStageProps = {
   restaurant: RestaurantMeta;
   branch: RestaurantBranch | null;
   dishes: MenuDish[];
-  initialDishId?: string;
-  getBackgroundFrame?: () => string | null;
+  /** The dish currently shown in the viewer (controlled by MenuShell). */
+  activeDishId: string;
+  /** Select a different dish (drives both the swipe flick and the menu sheet). */
+  onSelectDish: (dishId: string) => void;
+  /** Whether the full-menu sheet is open (the pill morphs into it). */
+  menuOpen: boolean;
+  /** Open the full-menu bottom sheet. */
+  onOpenMenu: () => void;
 };
 
-type MenuSection = { category: string; dishes: MenuDish[] };
-
 const defaultRotation = { azimuth: -22, polar: 70 };
+
+// Pitch lock: yaw (azimuth) spins freely so every side is visible, but pitch
+// (polar) is clamped to a top-biased band so you only ever see the top + sides
+// of a dish, never its underside. This holds for every GLB because DishStage
+// normalizes them all to the same pose (centered, bottom resting on y=0), so
+// "up" is consistent — assuming the GLB is authored right-side-up.
+// `polar - 66` is the tilt in degrees, so this band is roughly -8°…+26°.
+const MIN_POLAR = 58;
+const MAX_POLAR = 92;
 const emptySubscribe = () => () => {};
 
 export default function MenuStage({
   restaurant,
   branch,
   dishes,
-  initialDishId,
-  getBackgroundFrame,
+  activeDishId,
+  onSelectDish,
+  menuOpen,
+  onOpenMenu,
 }: MenuStageProps) {
-  const sections = useMemo(() => buildSections(dishes), [dishes]);
-  const initial = findInitialPosition(sections, initialDishId);
-
-  const [categoryIndex, setCategoryIndex] = useState(
-    initial?.categoryIndex ?? 0,
-  );
-  const [dishIndex, setDishIndex] = useState(initial?.dishIndex ?? 0);
   const [rotation, setRotation] = useState(defaultRotation);
   const [selectionByDish, setSelectionByDish] = useState<
     Record<string, string[]>
@@ -68,14 +88,9 @@ export default function MenuStage({
   const [captureResult, setCaptureResult] = useState<CaptureResult | null>(
     null,
   );
+  const [prevActiveDishId, setPrevActiveDishId] = useState(activeDishId);
 
   const captureFnRef = useRef<(() => string | null) | null>(null);
-  const categorySwipeRef = useRef({
-    active: false,
-    startX: 0,
-    startY: 0,
-    swiped: false,
-  });
   const rotateRef = useRef({
     active: false,
     startX: 0,
@@ -92,9 +107,6 @@ export default function MenuStage({
     () => false,
   );
 
-  const section = sections[categoryIndex] ?? sections[0];
-  const dish = section?.dishes[dishIndex] ?? section?.dishes[0];
-
   const analyticsContext = useMemo(
     () => ({
       restaurantSlug: restaurant.slug,
@@ -105,9 +117,23 @@ export default function MenuStage({
     [branch?.id, branch?.name, restaurant.name, restaurant.slug],
   );
 
-  if (!section || !dish) {
+  // Re-centre the model and close the customizer when the active dish changes —
+  // whether it was flicked on the stage or picked from the menu sheet. Adjusting
+  // state during render on a prop change (React docs pattern), not an effect.
+  if (activeDishId !== prevActiveDishId) {
+    setPrevActiveDishId(activeDishId);
+    setRotation(defaultRotation);
+    setCustomizing(false);
+  }
+
+  const resolvedDish = resolveActiveDish(dishes, activeDishId);
+
+  if (!resolvedDish) {
     return null;
   }
+
+  // Narrowed alias so the gesture/handler closures below see a defined dish.
+  const dish = resolvedDish;
 
   const variantGroups = dish.variants ?? [];
   const addOns = dish.addOns ?? [];
@@ -131,84 +157,44 @@ export default function MenuStage({
   const customizable = variantGroups.length > 0 || addOns.length > 0;
   const totalPrice =
     dish.price + trayAddOns.reduce((sum, item) => sum + item.price, 0);
+  const multipleDishes = dishes.length > 1;
 
   const arCapable = isClient && detectArCapability() !== "none";
   const arReady = isClient && canLaunchAr(dish);
 
   const dishContext = {
     ...analyticsContext,
-    category: section.category,
+    category: dish.category,
     dishId: dish.id,
     dishName: dish.name,
     modelUrl: dish.modelUrl,
   };
 
   function moveItem(direction: 1 | -1) {
-    const length = section.dishes.length;
     trackMenuEvent("menu_navigation", {
       ...dishContext,
       direction: direction === 1 ? "next" : "previous",
       mode: "dishes",
     });
-    setDishIndex((current) => (current + direction + length) % length);
-    setRotation(defaultRotation);
-    setCustomizing(false);
+    const nextId = neighbourDishId(dishes, dish.id, direction);
+    // Cinematic directional slide of the dish-stage box (see globals.css).
+    withViewTransition(
+      () => onSelectDish(nextId),
+      direction === 1 ? "next" : "prev",
+    );
   }
 
-  function selectCategory(index: number) {
-    if (index === categoryIndex) {
+  function jumpToDish(id: string) {
+    if (id === dish.id) {
       return;
     }
-
-    trackMenuEvent("category_opened", {
-      ...analyticsContext,
-      category: sections[index]?.category,
-    });
-    setCategoryIndex(index);
-    setDishIndex(0);
-    setRotation(defaultRotation);
-    setCustomizing(false);
-  }
-
-  function stepCategory(direction: 1 | -1) {
-    const length = sections.length;
-    selectCategory((categoryIndex + direction + length) % length);
-  }
-
-  // Swipe the centered category strip left/right to change category. Plain
-  // taps fall through to each label's onClick (no pointer capture here).
-  function onCategoryDown(event: PointerEvent<HTMLDivElement>) {
-    categorySwipeRef.current = {
-      active: true,
-      startX: event.clientX,
-      startY: event.clientY,
-      swiped: false,
-    };
-  }
-
-  function onCategoryUp(event: PointerEvent<HTMLDivElement>) {
-    if (!categorySwipeRef.current.active || sections.length <= 1) {
-      categorySwipeRef.current.active = false;
-      return;
-    }
-
-    const deltaX = event.clientX - categorySwipeRef.current.startX;
-    const deltaY = event.clientY - categorySwipeRef.current.startY;
-    categorySwipeRef.current.active = false;
-
-    if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY)) {
-      // Mark the gesture so the button's trailing click doesn't override it.
-      categorySwipeRef.current.swiped = true;
-      stepCategory(deltaX < 0 ? 1 : -1);
-    }
-  }
-
-  function onCategoryClick(index: number) {
-    if (categorySwipeRef.current.swiped) {
-      categorySwipeRef.current.swiped = false;
-      return;
-    }
-    selectCategory(index);
+    const currentIndex = dishes.findIndex((item) => item.id === dish.id);
+    const targetIndex = dishes.findIndex((item) => item.id === id);
+    trackMenuEvent("menu_navigation", { ...dishContext, mode: "dishes" });
+    withViewTransition(
+      () => onSelectDish(id),
+      targetIndex > currentIndex ? "next" : "prev",
+    );
   }
 
   function toggleAddOn(addOn: AddOn) {
@@ -234,6 +220,11 @@ export default function MenuStage({
       ...dishContext,
       reason: `${group.id}:${option.id}`,
     });
+  }
+
+  function toggleCustomizing() {
+    // View transition tweens the card box between collapsed and expanded.
+    withViewTransition(() => setCustomizing((open) => !open));
   }
 
   function startAr() {
@@ -264,7 +255,7 @@ export default function MenuStage({
     try {
       const blob = await composeShareImage({
         dishDataUrl,
-        backgroundDataUrl: getBackgroundFrame?.() ?? null,
+        backgroundDataUrl: null,
         restaurantName: restaurant.name,
         dishName: dish.name,
         price: totalPrice,
@@ -326,8 +317,8 @@ export default function MenuStage({
       azimuth: rotateRef.current.startRotation.azimuth + deltaX * 0.6,
       polar: clamp(
         rotateRef.current.startRotation.polar - deltaY * 0.4,
-        35,
-        100,
+        MIN_POLAR,
+        MAX_POLAR,
       ),
     });
   }
@@ -347,129 +338,155 @@ export default function MenuStage({
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
 
-    if (forcefulSwipe && section.dishes.length > 1) {
+    if (forcefulSwipe && multipleDishes) {
       moveItem(deltaX < 0 ? 1 : -1);
       return;
     }
 
     if (wasTap && customizable) {
-      setCustomizing((open) => !open);
+      toggleCustomizing();
     }
   }
 
   return (
-    <div className="absolute inset-0 z-10 flex flex-col px-4 pt-16 pb-6 select-none">
-      {/* Category strip — centered + swipeable */}
-      {sections.length > 1 && (
-        <div
-          className="flex shrink-0 touch-pan-y items-center justify-center gap-1.5"
-          onPointerDown={onCategoryDown}
-          onPointerUp={onCategoryUp}
-          onPointerCancel={() => {
-            categorySwipeRef.current.active = false;
-          }}
-        >
-          {sections.map((item, index) => (
-            <button
-              key={item.category}
-              type="button"
-              onClick={() => onCategoryClick(index)}
-              className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.16em] uppercase transition outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${
-                index === categoryIndex
-                  ? "bg-white text-black"
-                  : "text-white/45 active:text-white/70"
-              }`}
-            >
-              {item.category}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* 3D stage */}
-      <div className="relative min-h-0 flex-1">
-        <DishStage
-          dish={dish}
-          selectedAddOns={trayAddOns}
-          rotation={rotation}
-          registerCapture={(fn) => {
-            captureFnRef.current = fn;
-          }}
-        />
-
-        {/* Interaction overlay (routes gestures so the canvas stays passive) */}
-        <div
-          className="absolute inset-0 touch-none"
-          onPointerDown={onStageDown}
-          onPointerMove={onStageMove}
-          onPointerUp={onStageUp}
-          onPointerCancel={() => {
-            rotateRef.current.active = false;
-          }}
-        />
-
-        {section.dishes.length > 1 && (
-          <div className="pointer-events-none absolute inset-x-1 top-1/2 z-20 flex -translate-y-1/2 items-center justify-between">
-            <button
-              type="button"
-              onClick={() => moveItem(-1)}
-              className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-white/16 bg-black/24 text-2xl font-light text-white/64 shadow-lg shadow-black/20 backdrop-blur-md outline-none focus-visible:ring-2 focus-visible:ring-white/60 active:bg-white/12"
-              aria-label="Previous item"
-            >
-              {"<"}
-            </button>
-            <button
-              type="button"
-              onClick={() => moveItem(1)}
-              className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-white/16 bg-black/24 text-2xl font-light text-white/64 shadow-lg shadow-black/20 backdrop-blur-md outline-none focus-visible:ring-2 focus-visible:ring-white/60 active:bg-white/12"
-              aria-label="Next item"
-            >
-              {">"}
-            </button>
-          </div>
+    <div className="no-scrollbar absolute inset-0 z-10 flex flex-col overflow-y-auto px-4 pt-16 pb-6 select-none">
+      {/* 3D stage — a contained, square product viewer. Centered in the
+          leftover space and capped so the model never overflows its box. */}
+      <div className="relative flex min-h-[42dvh] flex-1 items-center justify-center py-3">
+        {/* Edge nav — bare chevrons hugging the viewport edges. They sit OUTSIDE
+            the dish-stage box so they stay put while the dish slides under. */}
+        {multipleDishes && (
+          <button
+            type="button"
+            onClick={() => moveItem(-1)}
+            aria-label="Previous dish"
+            className="absolute top-1/2 -left-2 z-20 flex h-14 w-12 -translate-y-1/2 items-center justify-start text-bone/80 transition outline-none focus-visible:ring-2 focus-visible:ring-bone/50 active:text-bone motion-safe:active:scale-90"
+          >
+            <ChevronLeft className="h-8 w-8 drop-shadow-[0_1px_6px_rgba(0,0,0,0.75)]" />
+          </button>
         )}
 
-        {customizable && (
-          <p className="pointer-events-none absolute inset-x-0 bottom-1 z-20 mx-auto w-fit rounded-full border border-white/14 bg-black/24 px-4 py-2 text-center text-xs font-semibold tracking-[0.14em] text-white/64 uppercase backdrop-blur-md">
-            {customizing ? "Drag to rotate" : "Tap dish to customize"}
-          </p>
+        <div
+          style={{ viewTransitionName: "dish-stage" } as CSSProperties}
+          className="relative aspect-square max-h-full w-full max-w-[20rem]"
+        >
+          <DishStage
+            dish={dish}
+            selectedAddOns={trayAddOns}
+            rotation={rotation}
+            registerCapture={(fn) => {
+              captureFnRef.current = fn;
+            }}
+          />
+
+          {/* Interaction overlay (routes gestures so the canvas stays passive) */}
+          <div
+            className="absolute inset-0 touch-none"
+            onPointerDown={onStageDown}
+            onPointerMove={onStageMove}
+            onPointerUp={onStageUp}
+            onPointerCancel={() => {
+              rotateRef.current.active = false;
+            }}
+          />
+        </div>
+
+        {multipleDishes && (
+          <button
+            type="button"
+            onClick={() => moveItem(1)}
+            aria-label="Next dish"
+            className="absolute top-1/2 -right-2 z-20 flex h-14 w-12 -translate-y-1/2 items-center justify-end text-bone/80 transition outline-none focus-visible:ring-2 focus-visible:ring-bone/50 active:text-bone motion-safe:active:scale-90"
+          >
+            <ChevronRight className="h-8 w-8 drop-shadow-[0_1px_6px_rgba(0,0,0,0.75)]" />
+          </button>
         )}
       </div>
 
-      {/* Compact info + customize + actions */}
-      <div className="mt-3 w-full shrink-0 rounded-3xl border border-white/14 bg-black/35 px-4 py-3 text-white backdrop-blur-xl">
-        {section.dishes.length > 1 && (
-          <div className="mb-2.5 flex justify-center gap-1.5">
-            {section.dishes.map((item, index) => (
-              <span
+      {/* Position track — segments show which dish you're on; tap to jump. */}
+      {multipleDishes && (
+        <div className="mx-auto mt-2 flex shrink-0 items-center justify-center gap-1.5">
+          {dishes.map((item) => {
+            const isActive = item.id === dish.id;
+            return (
+              <button
                 key={item.id}
-                className={`h-1.5 rounded-full transition-all ${
-                  index === dishIndex ? "w-5 bg-white" : "w-1.5 bg-white/40"
-                }`}
-              />
-            ))}
-          </div>
-        )}
+                type="button"
+                onClick={() => jumpToDish(item.id)}
+                aria-label={`View ${item.name}`}
+                aria-current={isActive}
+                className="group flex shrink-0 items-center py-2 outline-none"
+              >
+                <span
+                  className={`h-1 rounded-full transition-[width,background-color] duration-300 ease-[var(--ease-out-quint)] ${
+                    isActive
+                      ? "w-7 bg-bone"
+                      : "w-3 bg-bone/25 group-active:bg-bone/40"
+                  }`}
+                />
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="min-w-0 truncate text-lg font-semibold">
+      {/* Compact info + customise + actions — a Dimension glass card that
+          morphs open when "Customise" is tapped (shared view-transition). */}
+      <div
+        style={{ viewTransitionName: "dish-card" } as CSSProperties}
+        className="mx-auto mt-3 w-full max-w-md shrink-0 rounded-3xl border border-bone/[0.08] bg-char/80 px-5 py-4 text-bone shadow-[0_24px_48px_-16px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl"
+      >
+        {/* Title block — eyebrow + name (full width), then a price row that
+            carries the customise control (matched visual weight). */}
+        <div key={dish.id} className="animate-dish-meta">
+          <p className="font-geist text-[0.62rem] font-medium tracking-[0.2em] text-fog uppercase">
+            {dish.category}
+          </p>
+          <h1 className="mt-1.5 text-[1.7rem] leading-[1.05] font-normal tracking-[-0.02em] text-balance">
             {dish.name}
           </h1>
-          <p className="shrink-0 text-base font-semibold tabular-nums">
-            {restaurant.currency} {totalPrice}
-          </p>
+          <div className="mt-2.5 flex items-center justify-between gap-3">
+            <span className="font-geist text-base font-medium tabular-nums">
+              {restaurant.currency} {totalPrice}
+            </span>
+            {customizable && (
+              <button
+                type="button"
+                onClick={toggleCustomizing}
+                aria-expanded={customizing}
+                className={`relative flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[0.72rem] leading-none font-medium transition outline-none before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-[''] focus-visible:ring-2 focus-visible:ring-bone/50 motion-safe:active:scale-[0.96] ${
+                  customizing
+                    ? "border-transparent bg-paper text-void"
+                    : "border-bone/10 bg-char/70 text-mist active:bg-iron/60"
+                }`}
+              >
+                <span
+                  className="t-icon-swap"
+                  data-state={customizing ? "b" : "a"}
+                >
+                  <span className="t-icon" data-icon="a">
+                    <Plus className="block h-3.5 w-3.5" />
+                  </span>
+                  <span className="t-icon" data-icon="b">
+                    <Check className="block h-3.5 w-3.5" />
+                  </span>
+                </span>
+                {customizing ? "Done" : "Customise"}
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Customizer — appears when the dish is tapped */}
-        {customizing && customizable && (
-          <div className="mt-3 space-y-3">
+        {/* Customise options — the card morphs open to reveal these. */}
+        {customizable && customizing && (
+          <div className="customise-options mt-4 space-y-3">
             {/* Single-select versions (one per group, e.g. choose a side) */}
             {variantGroups.map((group) => {
               const chosenId =
                 variantSelection[group.id] ?? defaultVariantOptionId(group);
               return (
                 <div key={group.id}>
-                  <p className="mb-1.5 text-[0.6rem] font-semibold tracking-[0.18em] text-white/45 uppercase">
+                  <p className="mb-1.5 font-geist text-[0.6rem] font-medium tracking-[0.18em] text-fog uppercase">
                     {group.name}
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -481,16 +498,16 @@ export default function MenuStage({
                           type="button"
                           onClick={() => selectVariant(group, option)}
                           aria-pressed={on}
-                          className={`rounded-full border px-3 py-2 text-xs font-semibold transition outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${
+                          className={`rounded-full border px-3.5 py-2 text-[0.8rem] font-medium transition outline-none focus-visible:ring-2 focus-visible:ring-bone/50 motion-safe:active:scale-[0.96] ${
                             on
-                              ? "border-white/30 bg-white/90 text-black"
-                              : "border-white/16 bg-white/[0.06] text-white/78 active:bg-white/12"
+                              ? "border-transparent bg-paper text-void"
+                              : "border-bone/10 bg-char/70 text-mist active:bg-iron/60"
                           }`}
                         >
                           {option.name}
                           {option.price ? (
                             <span
-                              className={on ? "text-black/55" : "text-white/45"}
+                              className={on ? "text-void/55" : "text-fog"}
                             >
                               {" "}
                               +{restaurant.currency} {option.price}
@@ -508,7 +525,7 @@ export default function MenuStage({
             {addOns.length > 0 && (
               <div>
                 {variantGroups.length > 0 && (
-                  <p className="mb-1.5 text-[0.6rem] font-semibold tracking-[0.18em] text-white/45 uppercase">
+                  <p className="mb-1.5 font-geist text-[0.6rem] font-medium tracking-[0.18em] text-fog uppercase">
                     Extras
                   </p>
                 )}
@@ -521,16 +538,14 @@ export default function MenuStage({
                         type="button"
                         onClick={() => toggleAddOn(addOn)}
                         aria-pressed={on}
-                        className={`rounded-full border px-3 py-2 text-xs font-semibold transition outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${
+                        className={`rounded-full border px-3.5 py-2 text-[0.8rem] font-medium transition outline-none focus-visible:ring-2 focus-visible:ring-bone/50 ${
                           on
-                            ? "border-white/30 bg-white/90 text-black"
-                            : "border-white/16 bg-white/[0.06] text-white/78 active:bg-white/12"
+                            ? "border-transparent bg-paper text-void"
+                            : "border-bone/10 bg-char/70 text-mist active:bg-iron/60"
                         }`}
                       >
                         {addOn.name}
-                        <span
-                          className={on ? "text-black/55" : "text-white/45"}
-                        >
+                        <span className={on ? "text-void/55" : "text-fog"}>
                           {" "}
                           +{restaurant.currency} {addOn.price}
                         </span>
@@ -543,61 +558,72 @@ export default function MenuStage({
           </div>
         )}
 
-        {/* Actions */}
-        <div className="mt-3 flex items-center gap-2.5">
-          {arCapable && (
+        {/* Actions — white-pill primary, glass-pill secondary. */}
+        <div className="mt-4 flex items-center gap-2.5">
+          {arCapable ? (
+            <>
+              <button
+                type="button"
+                onClick={startAr}
+                disabled={!arReady}
+                className="flex flex-1 items-center justify-center gap-2 rounded-full bg-paper px-4 py-3 text-sm font-medium text-void transition outline-none focus-visible:ring-2 focus-visible:ring-bone/60 active:bg-bone disabled:opacity-40 motion-safe:active:scale-[0.96]"
+              >
+                <Cube className="h-[1.1rem] w-[1.1rem]" />
+                View on my table
+              </button>
+              <button
+                type="button"
+                onClick={openCapture}
+                aria-label="Share a photo"
+                className="flex items-center justify-center gap-2 rounded-full border border-bone/10 bg-char/70 px-4 py-3 text-sm font-medium text-bone transition outline-none focus-visible:ring-2 focus-visible:ring-bone/50 active:bg-iron/60 motion-safe:active:scale-[0.96]"
+              >
+                <Share className="h-[1.1rem] w-[1.1rem]" />
+                Share
+              </button>
+            </>
+          ) : (
             <button
               type="button"
-              onClick={startAr}
-              disabled={!arReady}
-              className="flex-1 rounded-full bg-white px-4 py-3 text-sm font-semibold text-black transition outline-none focus-visible:ring-2 focus-visible:ring-white/60 active:bg-white/90 disabled:opacity-50 motion-safe:active:scale-[0.99]"
+              onClick={openCapture}
+              className="flex flex-1 items-center justify-center gap-2 rounded-full bg-paper px-4 py-3 text-sm font-medium text-void transition outline-none focus-visible:ring-2 focus-visible:ring-bone/60 active:bg-bone motion-safe:active:scale-[0.96]"
             >
-              View on my table
+              <Share className="h-[1.1rem] w-[1.1rem]" />
+              Share a photo
             </button>
           )}
-          <button
-            type="button"
-            onClick={openCapture}
-            className={`rounded-full text-sm font-semibold transition outline-none focus-visible:ring-2 focus-visible:ring-white/60 motion-safe:active:scale-[0.99] ${
-              arCapable
-                ? "border border-white/18 bg-white/10 px-4 py-3 text-white/90 active:bg-white/16"
-                : "flex-1 bg-white px-4 py-3 text-black active:bg-white/90"
-            }`}
-          >
-            Share a photo
-          </button>
         </div>
       </div>
+
+      {/* Full menu — its box morphs into the menu sheet (shared view-transition). */}
+      <button
+        type="button"
+        onClick={onOpenMenu}
+        aria-expanded={menuOpen}
+        style={
+          {
+            viewTransitionName: menuOpen ? "none" : "menu-morph",
+          } as CSSProperties
+        }
+        className={`mx-auto mt-2.5 flex shrink-0 items-center gap-2 rounded-full border border-bone/10 bg-char/70 px-4 py-2.5 text-[0.8rem] font-medium text-mist shadow-[0_8px_28px_rgba(0,0,0,0.4)] backdrop-blur-md transition-opacity duration-200 outline-none focus-visible:ring-2 focus-visible:ring-bone/50 active:bg-iron/60 motion-safe:active:scale-[0.96] ${
+          menuOpen ? "pointer-events-none opacity-0" : "opacity-100"
+        }`}
+      >
+        <Menu className="h-4 w-4 text-ash" />
+        Full menu
+      </button>
 
       {captureOpen && (
         <DishCapture
           status={captureStatus}
           result={captureResult}
           dishName={dish.name}
-          shareText={`${dish.name} at ${restaurant.name} — menuviz.app`}
+          shareText={`${dish.name} at ${restaurant.name} · menuviz.app`}
           onClose={closeCapture}
           onShared={handleShared}
         />
       )}
     </div>
   );
-}
-
-function buildSections(dishes: MenuDish[]): MenuSection[] {
-  const order: string[] = [];
-
-  for (const dish of dishes) {
-    if (!order.includes(dish.category)) {
-      order.push(dish.category);
-    }
-  }
-
-  return order
-    .map((category) => ({
-      category,
-      dishes: dishes.filter((dish) => dish.category === category),
-    }))
-    .filter((section) => section.dishes.length > 0);
 }
 
 function defaultAddOnIds(dish: MenuDish): string[] {
@@ -629,27 +655,6 @@ function variantOptionToAddOn(option: VariantOption): AddOn {
     modelUrl: option.modelUrl,
     placeholderColor: option.placeholderColor,
   };
-}
-
-function findInitialPosition(
-  sections: MenuSection[],
-  initialDishId: string | undefined,
-) {
-  if (!initialDishId) {
-    return null;
-  }
-
-  for (let categoryIdx = 0; categoryIdx < sections.length; categoryIdx++) {
-    const dishIdx = sections[categoryIdx].dishes.findIndex(
-      (dish) => dish.id === initialDishId,
-    );
-
-    if (dishIdx >= 0) {
-      return { categoryIndex: categoryIdx, dishIndex: dishIdx };
-    }
-  }
-
-  return null;
 }
 
 function clamp(value: number, min: number, max: number) {
