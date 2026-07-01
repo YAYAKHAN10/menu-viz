@@ -21,10 +21,7 @@ export type AnalyticsContext = {
 
 export type MenuAnalyticsEvent =
   | "menu_session_started"
-  | "camera_started"
-  | "camera_live"
-  | "camera_blocked"
-  | "camera_unsupported"
+  | "menu_opened"
   | "category_viewed"
   | "category_opened"
   | "dish_viewed"
@@ -37,6 +34,7 @@ export type MenuAnalyticsEvent =
   | "model_load_retry"
   | "model_preload_failed"
   | "addon_toggled"
+  | "variant_selected"
   | "capture_open"
   | "capture_taken"
   | "capture_failed"

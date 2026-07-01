@@ -5,40 +5,61 @@
 > **what is actually built today**, and what's next. Read this once at the start
 > of a workstream. For the codebase map and day-to-day rules, use `CLAUDE.md`.
 >
-> Last full sync: **2026-06-30**.
+> Last full sync: **2026-07-01** (branch `refactor/frontend`).
 
 ---
 
 ## 0. Where the project is right now (read first)
 
-The **core diner loop is built, working, and deploy-previewed** on a Cloudflare
-Worker:
+The diner experience was **reworked into a camera-free, design-led 3D menu** on
+branch `refactor/frontend`. The loop:
 
-> **scan → browse a live 3D menu over the camera → customise a dish with add-ons
-> → drop it on your table in AR (Android) → share a branded photo.**
+> **scan → browse the 3D dish menu → step/swipe between dishes → customise →
+> (Android) drop on your table in AR → share a branded photo.**
 
 What exists today:
 
-- A **camera-first, single-screen** diner experience (category strip, swipe
-  between items, drag-to-rotate, tap-to-customise) built on **react-three-fiber**.
-- A **live add-on configurator** — each add-on is its own model toggled on the
-  tray (primitive placeholders until real GLBs land), with live price roll-up.
-- **Android AR** via Scene Viewer (ARCore intent) at **true real-world scale**;
-  **iOS** wired for Quick Look but off until USDZ assets exist.
-- The **branded share-photo compositor** (works on both platforms, no SLAM).
-- **Two real optimised models** (beef burger, crispy chicken) deployed to R2.
-- **Per-branch menus** (availability + pricing) and **dynamic QR tracking links**.
-- The full **3D asset pipeline** (gltf-transform) + R2 sync tooling.
+- A **camera-free, single-screen** diner experience (`MenuShell` → `MenuStage`):
+  the dish renders as **live react-three-fiber 3D** over a **warm "horizon"
+  gradient backdrop + film grain**. The **live camera was removed** for the MVP
+  (the AR flow was unreliable); AR is now a per-dish button, not the home base.
+- A **Dimension design system**: near-monochrome dark, glassmorphic surfaces,
+  pill geometry, hairline borders, **DM Sans** (whisper-weight display) + **Geist**
+  (UI / tabular numbers), tokenised in `globals.css`
+  (`void / char / ink / fog / mist / ash / bone / paper`). The dish is the only
+  saturated colour.
+- A **bottom-sheet "Full menu"** (`MenuDrawer`): a scannable editorial list with a
+  sticky **scroll-spy category bar** (a sliding active pill), bold section headers
+  - counts, and rich rows (monochrome thumbnail well, name, descriptor, highlight
+    tag, price). It opens from a "Full menu" pill that **morphs into the sheet**.
+- **Container morphs** everywhere via the **View Transitions API**
+  (`lib/viewTransition.ts` + scoped CSS in `globals.css`): the menu pill ↔ sheet,
+  the dish **card ↔ its customise options**, and a **cinematic directional slide**
+  of the 3D dish when you step between dishes.
+- **Dish navigation**: bolder edge chevrons + a tappable **segment position
+  track**, plus swipe; each move triggers the directional slide.
+- **Customise**: a button on the price line opens variant/add-on chips inline (the
+  card morphs open) with live price roll-up. Still single-select **versions** +
+  additive **add-ons**, each its own tray model (primitive placeholders for now).
+- **AR (Android Scene Viewer)**, the **combo-baking pipeline**, and the **branded
+  share compositor** are unchanged and still wired (`lib/ar.ts`,
+  `scripts/bake-combos.ts`, `lib/composeShareImage.ts` — now composes over the
+  branded backdrop, no camera frame). Two optimised models on R2, per-branch
+  menus, QR tracking links, and the gltf-transform pipeline are unchanged.
+- A **Brim** demo logo at the top of the page (`public/images/brim-logo.png`) and
+  **react-grab** as a dev-only "grab a UI element for the agent" tool.
 
-What is **not** done yet (the backlog): add-ons inside AR (needs pre-baked combo
-files), iOS AR (needs USDZ), real add-on GLBs, the analytics sink, a service
-worker, and the Supabase data layer. Details in §9 and `CLAUDE.md §16`.
+What is **not** done yet (the backlog): component GLBs for the combo baker, iOS
+AR (USDZ), the analytics sink, a service worker, the Supabase data layer, and a
+**transparent-background Brim logo** (the supplied PNG has a baked light→dark
+gradient). Details in §9 and `CLAUDE.md §16`.
 
-> **Architecture note for anyone holding the old mental model:** we no longer use
-> `<model-viewer>`, and the UI is no longer a vertical "Stories card feed." The
-> preview is our own react-three-fiber scene (so add-ons can toggle live), AR
-> launches the OS viewers directly, and the home base is a camera-first 3D stage.
-> See §5.
+> **Architecture note for anyone holding the old mental model:** there is **no
+> live camera** anymore and **no `<model-viewer>`**. Home base is a camera-free 3D
+> product-viewer stage; the full menu is a bottom sheet; transitions use the
+> **View Transitions API**. Heads-up: `CLAUDE.md`, `DESIGN.md`, `PRODUCT.md`, and
+> `README.md` still describe the older camera-first / "quiet instrument"
+> monochrome design and are **stale** pending a rewrite. See §5.
 
 ---
 
@@ -100,13 +121,17 @@ Real food that looks real is what gets shared.
    in the mobile browser. No app, no login. The link carries `?src=` (campaign)
    and optional `?d=` (deep-link a specific dish).
 2. **Browse** — a camera-first single screen. The current dish renders as **live
-   3D over the camera feed**. A **category strip** sits on top; **swipe left/right**
-   moves between items; **drag** rotates the dish.
-3. **Customise** — **tap the dish** to open the configurator and toggle add-ons
-   (fries, drink, extra cheese, …). Each add-on appears as its **own model on the
-   tray** in real time, and the price rolls up live.
+   3D over the camera feed**. A **centered, swipeable category strip** sits on top
+   (tap or swipe to switch category); **swipe left/right** moves between items;
+   **drag** rotates the dish.
+3. **Customise** — **tap the dish** to open the configurator. Pick a **version**
+   (single-select variant group, e.g. fries vs mashed potato) and toggle additive
+   **add-ons** (drink, extra cheese, …). Each chosen item appears as its **own
+   model on the tray** in real time, and the price rolls up live.
 4. **Drop in AR** — **"View on my table"** launches the OS AR viewer (Scene Viewer
    on Android today) and places the dish at **true real-world scale** on the table.
+   When a baked combo exists for the chosen version it drops the **composed plate**;
+   otherwise (today) it drops the base dish. See §5.
 5. **Compose & share** — **"Share a photo"** snapshots the configured plate from
    the WebGL canvas, composites it over the camera frame with a **menuviz
    watermark + dish/price**, and opens the native share sheet (IG/TikTok/WhatsApp).
@@ -155,13 +180,32 @@ them. So:
   This is why the growth engine works identically on both platforms despite the
   iOS AR limits.
 
-### Add-ons in AR → pre-baked combinations ("browse-and-drop")
+### Variants in AR → pre-baked combinations ("browse-and-drop") — pipeline built
 
-Because OS AR takes one file, each add-on is authored as its **own GLB**, and the
-chosen **combination** is pre-baked into a single GLB (+ USDZ) in the pipeline and
-served from R2. The diner configures in our UI; AR drops the finished plate.
-`resolveArModel()` in `lib/ar.ts` is the seam that maps a selected add-on set →
-its baked combo URL. **Today it returns the base dish** (combos not baked yet).
+Because OS AR takes one file, each component (side/add-on) is authored as its
+**own GLB**, and the chosen **combination** is pre-baked into a single GLB in the
+pipeline and served from R2. The diner configures in our UI; AR drops the finished
+plate. This is **built**: `scripts/bake-combos.ts` composes the base dish + chosen
+variant onto the ground at true meters and Draco/JPEG-optimises it; `lib/combo.ts`
+defines the deterministic combo key shared by baker and runtime;
+`lib/combos.generated.ts` is the generated manifest of baked keys; and
+`resolveArModel(dish, variantSelection, platform)` in `lib/ar.ts` maps the
+selection → the baked combo URL when its key is in the manifest, else the base
+dish.
+
+Two deliberate scoping calls (revisit when real assets land):
+
+- **Variants only.** The baker bakes one combo per version (the side); additive
+  add-ons don't change the baked combo. Widen by extending `comboKey` + the
+  baker's enumeration together.
+- **Android/GLB only.** No GLB→USDZ converter is wired, so iOS Quick Look uses the
+  base-dish USDZ; combos aren't generated for iOS.
+
+**Today it falls back to the base dish** for everyone, because the side/add-on
+**component GLBs don't exist yet** (they're primitives in the preview) — so the
+manifest is empty. Drop a real GLB at `public/models/components/<optionId>.glb`,
+run `bun run bake:combos` then `bun run assets:sync`, and AR serves the combo with
+**no code changes**. Nothing fake (primitive boxes) is ever baked or shipped.
 
 ### Real-world scale is the product
 
@@ -208,8 +252,13 @@ produced the two demo models from raw Meshy/Tripo exports.
 - **Convert (iOS):** GLB → USDZ for Quick Look; verify scale survives. **Not done
   yet** → `USDZ_READY=false`.
 - **Publish:** `bun run assets:sync` uploads to **Cloudflare R2** with correct
-  content-types and prunes stale objects.
-- **Next:** **combo baking** — merge base + add-on GLBs per combination for AR.
+  content-types and prunes stale objects (now covers `models/dishes/` **and**
+  `models/combos/`).
+- **Combo baking (built):** `bun run bake:combos` composes base dish + chosen
+  variant component(s) into one real-scale GLB per combo (see §5 and
+  `CLAUDE.md §8`). Waiting on component GLBs to actually emit anything.
+- **Next:** author the **component GLBs** (sides/add-ons), then USDZ generation
+  for iOS (dishes and combos).
 
 The hybrid (capture hero, generate tail) lets us go live per restaurant for roughly
 **$0 marginal** (pure AI) up to **~$200–600** in labour for lovingly-captured hero
@@ -253,9 +302,13 @@ the payoff, never the gate. Honour `prefers-reduced-motion`.
 
 - ✅ Zero-install PWA; QR → `menuviz.app/restaurants/{brand}?branch={loc}`; iOS
   Safari + Android Chrome.
-- ✅ Camera-first single-screen 3D browse (category strip, swipe, rotate).
-- ✅ Live add-on configurator (separate model per add-on, price roll-up).
+- ✅ Camera-first single-screen 3D browse (centered swipeable category strip,
+  swipe, rotate, clean dark stage until camera-live).
+- ✅ Live configurator: single-select **versions** (variant groups) + additive
+  **add-ons**, separate model per chosen item, price roll-up.
 - ✅ Real-scale AR on Android (Scene Viewer intent).
+- ✅ **Combo-baking pipeline** (`bake:combos`) + AR seam wiring (variant-only,
+  Android/GLB) — built and verified; emits combos once component GLBs exist.
 - ✅ Branded canvas compositor for the share photo (both platforms).
 - ✅ Per-location routing + per-branch menus/pricing/availability.
 - ✅ Dynamic QR tracking links per branch + per dish (`/links`).
@@ -265,9 +318,10 @@ the payoff, never the gate. Honour `prefers-reduced-motion`.
 
 ### Pending for a complete v1
 
-- ⏳ **Add-ons in AR** (pre-baked combo GLB/USDZ; `resolveArModel` seam).
-- ⏳ **iOS AR** (generate USDZ; flip `USDZ_READY`).
-- ⏳ **Real add-on GLBs** (placeholders today).
+- ⏳ **Component GLBs** for sides/add-ons → unblocks baked combos in AR (pipeline
+  is done; just needs assets + `bake:combos` + `assets:sync`).
+- ⏳ **iOS AR** (generate USDZ for dishes **and** combos; flip `USDZ_READY`).
+- ⏳ **Real add-on/side models** (primitive placeholders in the preview today).
 - ⏳ **Analytics sink** (`sendEvent` is a no-op; pick a privacy-light pipeline).
 - ⏳ **Service worker / PWA** caching + prefetch.
 - ⏳ **Supabase data layer** (hardcoded today).
@@ -324,9 +378,13 @@ v1; spreading thin across cities before saturating one.
    Look** for AR (`lib/ar.ts`); `model-viewer` removed.
 4. ✅ **Draco + JPEG** for AR-bound models (Scene Viewer compatibility).
 5. ✅ **R2 + CDN** for assets (zero egress).
+6. ✅ **Combo baking = variants-only, Android/GLB-only** for now (the side is the
+   "version"; add-ons don't change the baked file; iOS combos await a USDZ
+   converter). The scheme widens by extending `lib/combo.ts` + the baker together.
 
-**Still open:** service-worker tooling; analytics sink; USDZ generation approach;
-Supabase data layer; short-link scheme (`/{brand}/{location}` vs `/r/{code}`).
+**Still open:** service-worker tooling; analytics sink; USDZ generation approach
+(dishes **and** combos); Supabase data layer; short-link scheme
+(`/{brand}/{location}` vs `/r/{code}`); add-on permutations in baked combos.
 
 ---
 
@@ -337,9 +395,11 @@ Supabase data layer; short-link scheme (`/{brand}/{location}` vs `/r/{code}`).
    gotcha), the analytics events, and the backlog.
 2. Run it: `bun run dev`, open `/` (the default "Stacked" store), `/links` (the QR
    board), `/restaurants/stacked?branch=airport-express` (a burger-only branch).
-3. The diner loop already works end-to-end — **pick a backlog item** (`CLAUDE.md
-§16`) rather than rebuilding what exists. The highest-value next step is
-   **combo baking so add-ons appear in AR**, then **USDZ for iOS AR**.
+3. The diner loop already works end-to-end and the **combo-baking pipeline is
+   built** — **pick a backlog item** (`CLAUDE.md §16`) rather than rebuilding what
+   exists. The highest-value next step is **authoring the side/add-on component
+   GLBs** (drop them in `public/models/components/`, run `bun run bake:combos` +
+   `assets:sync` to light up combos in AR), then **USDZ for iOS AR**.
 
 ---
 

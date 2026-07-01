@@ -18,6 +18,35 @@ export type AddOn = {
   defaultOn?: boolean;
 };
 
+/**
+ * One choice within a {@link VariantGroup}. Structurally an add-on, but selected
+ * single-choice (radio) rather than toggled, so picking one swaps the others out.
+ */
+export type VariantOption = {
+  id: string;
+  name: string;
+  /** Price delta vs the dish base when this option is chosen (default 0). */
+  price?: number;
+  /** Drives the preview primitive when no model is supplied. */
+  kind?: AddOnKind;
+  modelUrl?: string;
+  placeholderColor?: string;
+};
+
+/**
+ * A single-select set of versions, e.g. "Side: Fries / Mashed potato / Salad".
+ * Exactly one option is always chosen; that option is shown on the tray and
+ * rolled into the price. Distinct from {@link AddOn}, which is additive.
+ */
+export type VariantGroup = {
+  id: string;
+  /** Label shown above the choices, e.g. "Side". */
+  name: string;
+  options: VariantOption[];
+  /** Pre-selected option id; falls back to the first option when unset. */
+  defaultOptionId?: string;
+};
+
 export type Dish = {
   id: string;
   name: string;
@@ -38,6 +67,8 @@ export type Dish = {
     secondary: string;
     accent: string;
   };
+  /** Single-select version groups (e.g. choose a side). Exactly one per group. */
+  variants?: VariantGroup[];
   /** Optional add-ons the diner can toggle (each its own model). */
   addOns?: AddOn[];
 };

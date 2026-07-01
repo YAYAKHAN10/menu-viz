@@ -140,7 +140,7 @@ export default function DishCapture({
               type="button"
               onClick={handleShare}
               disabled={status !== "ready" || busy}
-              className="flex-1 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black transition active:scale-[0.99] active:bg-white/90 disabled:opacity-50"
+              className="flex-1 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black transition active:scale-[0.96] active:bg-white/90 disabled:opacity-50"
             >
               {busy ? "Sharing…" : "Share"}
             </button>

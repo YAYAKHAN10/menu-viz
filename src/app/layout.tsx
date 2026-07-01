@@ -1,6 +1,14 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { DM_Sans, Geist, Geist_Mono } from "next/font/google";
+import ReactGrab from "@/components/ReactGrab";
 import "./globals.css";
+
+// DM Sans is the workhorse / display face (whisper-weight headlines); Geist is
+// kept for UI labels and tabular numbers. See DESIGN.md / the Dimension system.
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
+  subsets: ["latin"],
+});
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,9 +34,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${dmSans.variable} ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        {children}
+        {process.env.NODE_ENV === "development" && <ReactGrab />}
+      </body>
     </html>
   );
 }

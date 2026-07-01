@@ -1,9 +1,12 @@
 // Launches the OS AR viewers directly (no model-viewer dependency). Android →
 // Scene Viewer via an ARCore intent; iOS → AR Quick Look via a rel="ar" anchor.
 // Both are single-object viewers, so we hand them ONE pre-composed model URL —
-// see resolveArModel for the (future) per-combo baking.
+// resolveArModel maps the diner's variant selection to a pre-baked combo.
 
-import type { AddOn, MenuDish } from "@/types/restaurant";
+import { comboModelUrl } from "@/lib/assets";
+import { comboKey } from "@/lib/combo";
+import { BAKED_COMBOS } from "@/lib/combos.generated";
+import type { MenuDish } from "@/types/restaurant";
 
 export type ArCapability = "scene-viewer" | "quick-look" | "none";
 
@@ -30,16 +33,28 @@ export function detectArCapability(): ArCapability {
 }
 
 /**
- * Resolves the single model URL to drop in AR for a dish + chosen add-ons.
- * Today it returns the base dish; once per-combo GLB/USDZ are baked in the
- * pipeline, this maps the selected add-on set to its composed asset URL.
+ * Resolves the single model URL to drop in AR for a dish + the diner's variant
+ * selection. When a combo has been baked for that selection (its key is in
+ * BAKED_COMBOS, see scripts/bake-combos.ts), Scene Viewer gets the composed
+ * GLB; otherwise it falls back to the base dish. iOS combos aren't baked to
+ * USDZ yet, so Quick Look always uses the base dish USDZ.
  */
 export function resolveArModel(
   dish: MenuDish,
-  _selectedAddOns: AddOn[],
+  variantSelection: Record<string, string>,
   platform: "android" | "ios",
 ): string | undefined {
-  return platform === "ios" ? dish.iosModelUrl : dish.modelUrl;
+  if (platform === "ios") {
+    return dish.iosModelUrl;
+  }
+
+  const key = comboKey(dish.id, variantSelection, dish.variants ?? []);
+
+  if (key !== dish.id && BAKED_COMBOS.has(key)) {
+    return comboModelUrl(key);
+  }
+
+  return dish.modelUrl;
 }
 
 function absolute(url: string): string {
@@ -94,11 +109,14 @@ export function canLaunchAr(dish: MenuDish): boolean {
   return false;
 }
 
-export function launchAr(dish: MenuDish, selectedAddOns: AddOn[]): boolean {
+export function launchAr(
+  dish: MenuDish,
+  variantSelection: Record<string, string> = {},
+): boolean {
   const capability = detectArCapability();
 
   if (capability === "scene-viewer") {
-    const model = resolveArModel(dish, selectedAddOns, "android");
+    const model = resolveArModel(dish, variantSelection, "android");
 
     if (!model) {
       return false;
@@ -109,7 +127,7 @@ export function launchAr(dish: MenuDish, selectedAddOns: AddOn[]): boolean {
   }
 
   if (capability === "quick-look") {
-    const model = resolveArModel(dish, selectedAddOns, "ios");
+    const model = resolveArModel(dish, variantSelection, "ios");
 
     if (!model) {
       return false;

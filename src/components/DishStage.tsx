@@ -32,10 +32,11 @@ export default function DishStage({
     <Canvas
       gl={{ preserveDrawingBuffer: true, alpha: true, antialias: true }}
       dpr={[1, 2]}
-      camera={{ position: [0, 0.32, 0.62], fov: 34 }}
+      camera={{ position: [0, 0.38, 0.75], fov: 34 }}
       style={{ width: "100%", height: "100%", background: "transparent" }}
     >
       <CaptureBridge registerCapture={registerCapture} />
+      <CameraRig />
 
       <ambientLight intensity={0.65} />
       <hemisphereLight args={["#ffffff", "#4a4034", 0.6]} />
@@ -64,6 +65,18 @@ export default function DishStage({
       </group>
     </Canvas>
   );
+}
+
+/** Aims the camera at the dish's mid-height (not the ground) so the model sits
+ *  vertically centred in the viewer and never clips the top edge. */
+function CameraRig() {
+  const camera = useThree((state) => state.camera);
+
+  useEffect(() => {
+    camera.lookAt(0, 0.12, 0);
+  }, [camera]);
+
+  return null;
 }
 
 function CaptureBridge({

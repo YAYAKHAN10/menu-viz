@@ -44,16 +44,37 @@ export const restaurants: Restaurant[] = [
           secondary: "#7a4a28",
           accent: "#e08a3c",
         },
-        // Placeholder add-ons (primitive previews) until real GLBs are authored.
-        addOns: [
+        // Single-select "version" — exactly one side comes with the burger.
+        variants: [
           {
-            id: "fries",
-            name: "Fries",
-            price: 250,
-            kind: "side",
-            placeholderColor: "#e0a441",
-            defaultOn: true,
+            id: "side",
+            name: "Side",
+            defaultOptionId: "fries",
+            options: [
+              {
+                id: "fries",
+                name: "Fries",
+                kind: "side",
+                placeholderColor: "#e0a441",
+              },
+              {
+                id: "mashed",
+                name: "Mashed potato",
+                price: 50,
+                kind: "side",
+                placeholderColor: "#ecdcae",
+              },
+              {
+                id: "salad",
+                name: "Side salad",
+                kind: "side",
+                placeholderColor: "#6fae54",
+              },
+            ],
           },
+        ],
+        // Additive extras (primitive previews) until real GLBs are authored.
+        addOns: [
           {
             id: "cola",
             name: "Cola",
@@ -95,15 +116,35 @@ export const restaurants: Restaurant[] = [
           secondary: "#7c5a24",
           accent: "#e0a441",
         },
-        addOns: [
+        variants: [
           {
-            id: "fries",
-            name: "Fries",
-            price: 250,
-            kind: "side",
-            placeholderColor: "#e0a441",
-            defaultOn: true,
+            id: "side",
+            name: "Side",
+            defaultOptionId: "fries",
+            options: [
+              {
+                id: "fries",
+                name: "Fries",
+                kind: "side",
+                placeholderColor: "#e0a441",
+              },
+              {
+                id: "coleslaw",
+                name: "Coleslaw",
+                kind: "side",
+                placeholderColor: "#cfd8a0",
+              },
+              {
+                id: "mac",
+                name: "Mac & cheese",
+                price: 120,
+                kind: "side",
+                placeholderColor: "#e8b54a",
+              },
+            ],
           },
+        ],
+        addOns: [
           {
             id: "lemonade",
             name: "Mint lemonade",
@@ -117,13 +158,6 @@ export const restaurants: Restaurant[] = [
             price: 100,
             kind: "extra",
             placeholderColor: "#c0392b",
-          },
-          {
-            id: "coleslaw",
-            name: "Coleslaw",
-            price: 180,
-            kind: "side",
-            placeholderColor: "#cfd8a0",
           },
         ],
       },

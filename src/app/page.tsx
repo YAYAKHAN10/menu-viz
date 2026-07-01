@@ -1,4 +1,4 @@
-import CameraMenu from "@/components/CameraMenu";
+import MenuShell from "@/components/MenuShell";
 import {
   getBranchMenu,
   getDefaultRestaurant,
@@ -12,7 +12,7 @@ export default function Home() {
   const dishes = getBranchMenu(restaurant.slug, branch);
 
   return (
-    <CameraMenu
+    <MenuShell
       restaurant={toRestaurantMeta(restaurant)}
       branch={branch}
       dishes={dishes}
